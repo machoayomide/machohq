@@ -14,8 +14,17 @@
       "adaptiveIcon": {
         "backgroundColor": "#0c1220"
       },
-      "package": "com.machotech.machohq"
+      "package": "com.machotech.machohq",
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "SCHEDULE_EXACT_ALARM",
+        "POST_NOTIFICATIONS",
+        "VIBRATE",
+        "WAKE_LOCK"
+      ]
     },
-    "plugins": []
+    "plugins": [
+      "expo-notifications"
+    ]
   }
 }
