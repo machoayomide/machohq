@@ -5,24 +5,21 @@ import { COLORS } from '../theme';
 import { Card, Badge, ProgressBar, Ring, Btn, Input, TabBar } from '../components/UI';
 import { daysBetween, today } from '../utils/storage';
 import { CHALLENGE, NEWBIE_REQS } from '../data/constants';
+import AddDownlineScreen from './AddDownlineScreen';
 
 export default function NeoLifeScreen({ team, setTeam, data, setData }) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState(0);
   const [detail, setDetail] = useState(null);
   const [adding, setAdding] = useState(false);
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [status, setStatus] = useState('Newbie');
   const [pvInput, setPvInput] = useState('');
 
   const daysLeft = daysBetween(today(), CHALLENGE.end);
   const totalPV = team.reduce((s, m) => s + m.pv, 0);
 
-  const addMember = () => {
-    if (!name.trim()) return;
-    setTeam(prev => [...prev, { id: Date.now(), name: name.trim(), phone, status, direct: true, sponsor: 'You', pv: 0, joined: today(), reqs: {}, lastContact: today() }]);
-    setName(''); setPhone(''); setAdding(false);
+  const handleSaveDownline = (member) => {
+    setTeam(prev => [...prev, member]);
+    setAdding(false);
   };
 
   const toggleReq = (id, reqId) => {
@@ -32,6 +29,17 @@ export default function NeoLifeScreen({ team, setTeam, data, setData }) {
   const updateMember = (id, updates) => {
     setTeam(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
   };
+
+  // Add downline flow — full screen, 5 steps
+  if (adding) {
+    return (
+      <AddDownlineScreen
+        team={team}
+        onSave={handleSaveDownline}
+        onCancel={() => setAdding(false)}
+      />
+    );
+  }
 
   // Member detail view
   if (detail) {
@@ -173,25 +181,6 @@ export default function NeoLifeScreen({ team, setTeam, data, setData }) {
 
           <Btn full onPress={() => setAdding(true)} style={{ marginTop: 8 }}>+ Add downline</Btn>
 
-          {adding && (
-            <Card style={{ marginTop: 12, borderColor: COLORS.primary + '44' }}>
-              <Input value={name} onChangeText={setName} placeholder="Name" />
-              <View style={{ height: 8 }} />
-              <Input value={phone} onChangeText={setPhone} placeholder="Phone" />
-              <View style={{ height: 8 }} />
-              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
-                {['Newbie', 'Pro', 'Distributor'].map(st => (
-                  <TouchableOpacity key={st} onPress={() => setStatus(st)} style={[s.statusBtn, status === st && s.statusActive]}>
-                    <Text style={{ color: status === st ? COLORS.primary : COLORS.t3, fontSize: 11 }}>{st}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Btn full onPress={addMember}>Save</Btn>
-                <Btn full outline onPress={() => setAdding(false)}>Cancel</Btn>
-              </View>
-            </Card>
-          )}
         </View>
       )}
 

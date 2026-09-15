@@ -40,7 +40,7 @@ export default function AIScreen() {
 
     // Search knowledge base for relevant book excerpts
     let knowledgeContext = '';
-    try { knowledgeContext = await buildKnowledgeContext(q); } catch {}
+    try { knowledgeContext = buildKnowledgeContext(q); } catch {}
 
     const prompt = `You are MachoHQ AI — a direct, no-fluff mentor for Macho (Ayomide), a Nigerian freelancer with 20+ Fiverr accounts and NeoLife network marketer on a 6-month Director Challenge (Sep 2026 - Feb 2027).
 
@@ -78,7 +78,7 @@ Question: ${q}`;
     if (!trainTopic.trim()) return;
     setLoading(true);
     let knowledgeContext = '';
-    try { knowledgeContext = await buildKnowledgeContext(trainTopic); } catch {}
+    try { knowledgeContext = buildKnowledgeContext(trainTopic); } catch {}
     const reply = await callAI(`Generate a NeoLife team training for: ${trainAudience}. Topic: ${trainTopic}. Use this knowledge:\n${knowledgeContext}\n\nInclude: opening hook, 3-4 key points with talking notes, 1 activity, closing CTA. ${trainAudience === 'General Team' ? 'Simple and motivational.' : trainAudience === 'Pros Only' ? 'Add skill-building.' : 'Business strategy and leadership.'} Under 300 words.`);
     setTrainResult(reply);
     setLoading(false);
