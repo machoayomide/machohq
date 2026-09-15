@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "MachoHQ",
+    "slug": "machohq",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0c1220",
+      "resizeMode": "contain"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0c1220"
+      },
+      "package": "com.machotech.machohq"
+    },
+    "plugins": []
+  }
+}
