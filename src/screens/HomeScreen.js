@@ -1,17 +1,19 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import { Card, Badge, ProgressBar } from '../components/UI';
 import { daysBetween, today, greeting } from '../utils/storage';
 import { CHALLENGE } from '../data/constants';
 
 export default function HomeScreen({ data, dailyActions, toggleAction }) {
+  const insets = useSafeAreaInsets();
   const daysLeft = daysBetween(today(), CHALLENGE.end);
   const actionsDone = dailyActions.filter(a => a.done).length;
   const score = Math.round((actionsDone / (dailyActions.length || 1)) * 100);
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={[s.container, { paddingTop: insets.top + 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
       <View style={s.header}>
         <Text style={s.dayLabel}>Day {new Date().getDate()} of 30</Text>
         <Text style={s.greeting}>{greeting()}, Macho</Text>
@@ -75,7 +77,7 @@ export default function HomeScreen({ data, dailyActions, toggleAction }) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: 16, paddingTop: 20 },
+  container: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: 16 },
   header: { marginBottom: 20 },
   dayLabel: { color: COLORS.t3, fontSize: 11 },
   greeting: { fontSize: 22, fontWeight: '700', color: COLORS.t1 },

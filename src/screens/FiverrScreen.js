@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import { Card, Badge, Btn, Input, TabBar, Ring } from '../components/UI';
 import { today } from '../utils/storage';
 
 export default function FiverrScreen({ accounts, setAccounts, gigs, setGigs }) {
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState(0);
   const [detail, setDetail] = useState(null);
   const [adding, setAdding] = useState(false);
@@ -61,7 +63,7 @@ export default function FiverrScreen({ accounts, setAccounts, gigs, setGigs }) {
     const accGigs = gigs.filter(g => g.accountId === String(acc.id));
 
     return (
-      <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView style={[s.container, { paddingTop: insets.top + 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
         <TouchableOpacity onPress={() => { setDetail(null); setAuditResult(null); }}>
           <Text style={s.back}>← Back</Text>
         </TouchableOpacity>
@@ -123,7 +125,7 @@ export default function FiverrScreen({ accounts, setAccounts, gigs, setGigs }) {
   }
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={[s.container, { paddingTop: insets.top + 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
       <Text style={s.title}>Fiverr Hub</Text>
       <Text style={{ color: COLORS.t3, fontSize: 11, marginBottom: 16 }}>
         {accounts.length} accounts · {gigs.length} gigs tracked
@@ -214,7 +216,7 @@ export default function FiverrScreen({ accounts, setAccounts, gigs, setGigs }) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: 16, paddingTop: 20 },
+  container: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: 16 },
   title: { fontSize: 20, fontWeight: '700', color: COLORS.t1, marginBottom: 4 },
   back: { color: COLORS.t2, fontSize: 13, marginBottom: 16 },
   sectionTitle: { color: COLORS.t2, fontSize: 13, fontWeight: '600', marginBottom: 8 },

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import { Card, Badge, Btn, Ring, TabBar, Input } from '../components/UI';
 import { FOCUS_BLOCKS } from '../data/constants';
@@ -12,6 +13,7 @@ const fmt = (s) => {
 };
 
 export default function FocusScreen() {
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState(0);
   const [running, setRunning] = useState(false);
   const [block, setBlock] = useState(null);
@@ -67,7 +69,7 @@ export default function FocusScreen() {
   const distractions = ['Phone', 'Social media', 'Visitors', 'Tiredness', 'Food', 'Nothing'];
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={[s.container, { paddingTop: insets.top + 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
       <Text style={s.title}>Focus Engine</Text>
       <Text style={{ color: COLORS.t3, fontSize: 11, marginBottom: 16 }}>Deep work blocks · Verified timer</Text>
       <TabBar tabs={['Timer', 'Schedule', 'Insights']} active={tab} onChange={setTab} />
@@ -229,7 +231,7 @@ export default function FocusScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: 16, paddingTop: 20 },
+  container: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: 16 },
   title: { fontSize: 20, fontWeight: '700', color: COLORS.t1, marginBottom: 4 },
   timerText: { fontSize: 38, fontWeight: '800', color: COLORS.t1, fontFamily: 'monospace', letterSpacing: -1 },
   choiceBtn: { flex: 1, height: 44, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center' },

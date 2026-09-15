@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import { Card, Badge, ProgressBar, Btn, Input, TabBar } from '../components/UI';
 import { today } from '../utils/storage';
 import { EARNING_FEES, NAIRA_RATE } from '../data/constants';
 
 export default function GrowthScreen({ earnings, setEarnings, books, setBooks }) {
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState(0);
   const [addingE, setAddingE] = useState(false);
   const [addingB, setAddingB] = useState(false);
@@ -36,7 +38,7 @@ export default function GrowthScreen({ earnings, setEarnings, books, setBooks })
     const bk = books.find(b => b.id === bookDetail);
     if (!bk) { setBookDetail(null); return null; }
     return (
-      <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView style={[s.container, { paddingTop: insets.top + 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
         <TouchableOpacity onPress={() => setBookDetail(null)}><Text style={s.back}>← Back</Text></TouchableOpacity>
         <Card glow={COLORS.accent}>
           <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.t1 }}>{bk.title}</Text>
@@ -58,7 +60,7 @@ export default function GrowthScreen({ earnings, setEarnings, books, setBooks })
   }
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={[s.container, { paddingTop: insets.top + 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
       <Text style={s.title}>Growth Hub</Text>
       <TabBar tabs={['Money', 'Books']} active={mode} onChange={setMode} />
 
@@ -157,7 +159,7 @@ export default function GrowthScreen({ earnings, setEarnings, books, setBooks })
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: 16, paddingTop: 20 },
+  container: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: 16 },
   title: { fontSize: 20, fontWeight: '700', color: COLORS.t1, marginBottom: 4 },
   back: { color: COLORS.t2, fontSize: 13, marginBottom: 16 },
   sectionTitle: { color: COLORS.t2, fontSize: 13, fontWeight: '600', marginBottom: 8 },
