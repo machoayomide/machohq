@@ -43,7 +43,7 @@ export default function ScoreScreen({ dailyActions, data }) {
   const punishment = score < 40;
 
   return (
-    <ScrollView style={[s.container, { paddingTop: insets.top + 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={[s.container, { paddingTop: 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
       <Text style={s.title}>Macho Score</Text>
       <Text style={{ color: COLORS.t3, fontSize: 11, marginBottom: 16 }}>
         {new Date().toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' })}

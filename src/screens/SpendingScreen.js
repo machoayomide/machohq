@@ -44,7 +44,7 @@ export default function SpendingScreen({ spending, setSpending, earnings }) {
   })).filter(c => c.spent > 0 || c.budget > 0);
 
   return (
-    <ScrollView style={[s.container, { paddingTop: insets.top + 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={[s.container, { paddingTop: 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
       <Text style={s.title}>Spending Tracker</Text>
       <Text style={{ color: COLORS.t3, fontSize: 11, marginBottom: 16 }}>Stay accountable · Budget smart</Text>
 

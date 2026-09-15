@@ -43,7 +43,7 @@ export default function WeeklyReviewScreen({ data, team, prospects, earnings, da
   };
 
   return (
-    <ScrollView style={[s.container, { paddingTop: insets.top + 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={[s.container, { paddingTop: 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
       <Text style={s.title}>Weekly Review</Text>
       <Text style={{ color: COLORS.t3, fontSize: 11, marginBottom: 16 }}>
         Week of {new Date().toLocaleDateString('en', { month: 'long', day: 'numeric' })}

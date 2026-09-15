@@ -136,7 +136,7 @@ Rules:
   const totalActions = zeroPV.length + partialPV.length + coldTeam.length + overdueProspects.length;
 
   return (
-    <ScrollView style={[s.container, { paddingTop: insets.top + 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={[s.container, { paddingTop: 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
       {onBack && (
         <TouchableOpacity onPress={onBack}>
           <Text style={{ color: COLORS.t2, fontSize: 13, marginBottom: 12 }}>← Back</Text>

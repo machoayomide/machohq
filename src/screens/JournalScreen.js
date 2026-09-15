@@ -58,7 +58,7 @@ export default function JournalScreen({ entries, setEntries }) {
   const sorted = [...(entries || [])].reverse();
 
   return (
-    <ScrollView style={[s.container, { paddingTop: insets.top + 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={[s.container, { paddingTop: 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
       <Text style={s.title}>No Excuses Journal</Text>
       <Text style={{ color: COLORS.t3, fontSize: 11, marginBottom: 16 }}>Honest daily reflection — own your results</Text>
 

@@ -38,7 +38,7 @@ export default function GrowthScreen({ earnings, setEarnings, books, setBooks })
     const bk = books.find(b => b.id === bookDetail);
     if (!bk) { setBookDetail(null); return null; }
     return (
-      <ScrollView style={[s.container, { paddingTop: insets.top + 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView style={[s.container, { paddingTop: 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
         <TouchableOpacity onPress={() => setBookDetail(null)}><Text style={s.back}>← Back</Text></TouchableOpacity>
         <Card glow={COLORS.accent}>
           <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.t1 }}>{bk.title}</Text>
@@ -60,7 +60,7 @@ export default function GrowthScreen({ earnings, setEarnings, books, setBooks })
   }
 
   return (
-    <ScrollView style={[s.container, { paddingTop: insets.top + 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={[s.container, { paddingTop: 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
       <Text style={s.title}>Growth Hub</Text>
       <TabBar tabs={['Money', 'Books']} active={mode} onChange={setMode} />
 

@@ -37,7 +37,7 @@ export default function HomeScreen({ data, dailyActions, toggleAction, team, pro
   const qpvGap = Math.max(0, 750 - (data.qpv || 0));
 
   return (
-    <ScrollView style={[s.container, { paddingTop: insets.top + 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={[s.container, { paddingTop: 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
       <View style={s.header}>
         <Text style={s.dayLabel}>Day {new Date().getDate()} of 30</Text>
         <Text style={s.greeting}>{greeting()}, Macho</Text>
