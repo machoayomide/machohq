@@ -11,6 +11,7 @@ import { DEFAULT_ACTIONS } from './src/data/constants';
 
 import LockScreen from './src/screens/LockScreen';
 import HomeScreen from './src/screens/HomeScreen';
+import DailyBriefScreen from './src/screens/DailyBriefScreen';
 import NeoLifeScreen from './src/screens/NeoLifeScreen';
 import AddDownlineScreen from './src/screens/AddDownlineScreen';
 import PipelineScreen from './src/screens/PipelineScreen';
@@ -78,6 +79,7 @@ export default function App() {
   }, [appData, team, prospects, dailyActions, earnings, spending, books, accounts, gigs, journal, loaded]);
 
   const toggleAction = (id) => setDailyActions(prev => prev.map(a => a.id === id ? { ...a, done: !a.done } : a));
+  const [showBrief, setShowBrief] = useState(false);
 
   if (locked) return (<SafeAreaProvider><StatusBar style="light" /><LockScreen onUnlock={() => setLocked(false)} /></SafeAreaProvider>);
 
@@ -95,7 +97,12 @@ export default function App() {
         tabBarShowLabel: false,
       }}>
         <Tab.Screen name="HQ" options={{ tabBarIcon: ({ focused }) => <TabIcon icon="⌂" label="HQ" focused={focused} /> }}>
-          {() => <HomeScreen data={appData} dailyActions={dailyActions} toggleAction={toggleAction} />}
+          {() => showBrief ? (
+            <DailyBriefScreen team={team} prospects={prospects} data={appData} books={books} onBack={() => setShowBrief(false)} />
+          ) : (
+            <HomeScreen data={appData} dailyActions={dailyActions} toggleAction={toggleAction}
+              team={team} prospects={prospects} onOpenBrief={() => setShowBrief(true)} />
+          )}
         </Tab.Screen>
         <Tab.Screen name="NeoLife" options={{ tabBarIcon: ({ focused }) => <TabIcon icon="◈" label="NeoLife" focused={focused} /> }}>
           {() => <NeoLifeScreen team={team} setTeam={setTeam} data={appData} setData={setAppData} />}

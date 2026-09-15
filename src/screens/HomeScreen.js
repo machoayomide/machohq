@@ -1,16 +1,40 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import { Card, Badge, ProgressBar } from '../components/UI';
-import { daysBetween, today, greeting } from '../utils/storage';
+import { daysBetween, today, greeting, getData, setData } from '../utils/storage';
 import { CHALLENGE } from '../data/constants';
+import { requestPermissions, scheduleDaily } from '../utils/notifications';
 
-export default function HomeScreen({ data, dailyActions, toggleAction }) {
+export default function HomeScreen({ data, dailyActions, toggleAction, team, prospects, onOpenBrief }) {
   const insets = useSafeAreaInsets();
   const daysLeft = daysBetween(today(), CHALLENGE.end);
   const actionsDone = dailyActions.filter(a => a.done).length;
   const score = Math.round((actionsDone / (dailyActions.length || 1)) * 100);
+
+  // Schedule daily reminders once
+  useEffect(() => {
+    (async () => {
+      const done = await getData('dailyRemindersSet');
+      if (done) return;
+      const granted = await requestPermissions();
+      if (!granted) return;
+      await scheduleDaily('Morning attack plan', 'Check who needs you today before the day runs away.', 7, 0);
+      await scheduleDaily('Midday PV check', 'How many people have you contacted so far?', 13, 0);
+      await scheduleDaily('Reading time', '15 pages. That is all. Pick up the book.', 20, 30);
+      await scheduleDaily('No Excuses Journal', 'What went right today? What went wrong?', 22, 0);
+      await setData('dailyRemindersSet', true);
+    })();
+  }, []);
+
+  // Count what needs attention
+  const zeroPV = (team || []).filter(m => m.pv === 0).length;
+  const overdue = (prospects || []).filter(p => daysBetween(p.lastContact, today()) >= 3 && p.stage < 7).length;
+  const coldTeam = (team || []).filter(m => daysBetween(m.lastContact || m.joined, today()) >= 7).length;
+  const totalAttention = zeroPV + overdue + coldTeam;
+
+  const qpvGap = Math.max(0, 750 - (data.qpv || 0));
 
   return (
     <ScrollView style={[s.container, { paddingTop: insets.top + 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
@@ -19,7 +43,8 @@ export default function HomeScreen({ data, dailyActions, toggleAction }) {
         <Text style={s.greeting}>{greeting()}, Macho</Text>
       </View>
 
-      <Card glow={COLORS.accent} style={{ backgroundColor: COLORS.card }}>
+      {/* Director Challenge */}
+      <Card glow={COLORS.accent}>
         <View style={s.row}>
           <Text style={s.challengeLabel}>DIRECTOR CHALLENGE</Text>
           <Badge text="Month 1 / 6" color={COLORS.accent} />
@@ -35,11 +60,57 @@ export default function HomeScreen({ data, dailyActions, toggleAction }) {
         </View>
         <View style={s.row}>
           <Text style={{ color: COLORS.t2, fontSize: 12 }}>September QPV</Text>
-          <Text style={{ color: COLORS.t1, fontSize: 14, fontWeight: '600' }}>{data.qpv} / 750</Text>
+          <Text style={{ color: COLORS.t1, fontSize: 14, fontWeight: '600' }}>{data.qpv || 0} / 750</Text>
         </View>
-        <ProgressBar value={data.qpv} max={750} height={6} />
+        <ProgressBar value={data.qpv || 0} max={750} height={6} />
+        {qpvGap > 0 && (
+          <Text style={{ color: COLORS.warn, fontSize: 11, marginTop: 6 }}>{qpvGap} PV to close this month</Text>
+        )}
       </Card>
 
+      {/* Attack plan entry */}
+      <TouchableOpacity onPress={onOpenBrief} activeOpacity={0.7}>
+        <Card glow={totalAttention > 0 ? COLORS.warn : undefined} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={[s.iconBox, { backgroundColor: totalAttention > 0 ? COLORS.warn + '22' : COLORS.primary + '22' }]}>
+            <Text style={{ fontSize: 20 }}>⚡</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: COLORS.t1, fontSize: 14, fontWeight: '600' }}>Today's attack plan</Text>
+            <Text style={{ color: COLORS.t3, fontSize: 11, marginTop: 2 }}>
+              {totalAttention > 0
+                ? `${totalAttention} people need you · messages ready to send`
+                : 'Everyone covered — go prospect'}
+            </Text>
+          </View>
+          <Text style={{ color: COLORS.t3, fontSize: 18 }}>›</Text>
+        </Card>
+      </TouchableOpacity>
+
+      {/* Attention breakdown */}
+      {totalAttention > 0 && (
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+          {zeroPV > 0 && (
+            <Card style={{ flex: 1, padding: 10, marginBottom: 0, alignItems: 'center' }}>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: COLORS.danger }}>{zeroPV}</Text>
+              <Text style={{ color: COLORS.t3, fontSize: 9, textAlign: 'center' }}>zero PV</Text>
+            </Card>
+          )}
+          {overdue > 0 && (
+            <Card style={{ flex: 1, padding: 10, marginBottom: 0, alignItems: 'center' }}>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: COLORS.accent }}>{overdue}</Text>
+              <Text style={{ color: COLORS.t3, fontSize: 9, textAlign: 'center' }}>prospects cold</Text>
+            </Card>
+          )}
+          {coldTeam > 0 && (
+            <Card style={{ flex: 1, padding: 10, marginBottom: 0, alignItems: 'center' }}>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: COLORS.blue }}>{coldTeam}</Text>
+              <Text style={{ color: COLORS.t3, fontSize: 9, textAlign: 'center' }}>team quiet</Text>
+            </Card>
+          )}
+        </View>
+      )}
+
+      {/* Daily actions */}
       <Card>
         <View style={[s.row, { marginBottom: 10 }]}>
           <Text style={{ color: COLORS.t2, fontSize: 13, fontWeight: '600' }}>Daily power actions</Text>
@@ -56,7 +127,8 @@ export default function HomeScreen({ data, dailyActions, toggleAction }) {
         ))}
       </Card>
 
-      <Card glow={COLORS.primary} style={{ backgroundColor: COLORS.card }}>
+      {/* Score */}
+      <Card glow={COLORS.primary}>
         <View style={s.row}>
           <View>
             <Text style={s.scoreLabel}>MACHO SCORE</Text>
@@ -64,10 +136,13 @@ export default function HomeScreen({ data, dailyActions, toggleAction }) {
               <Text style={{ fontSize: 36, fontWeight: '800', color: COLORS.t1 }}>{score}</Text>
               <Text style={{ color: COLORS.t3, fontSize: 14 }}>/100</Text>
             </View>
+            <Text style={{ color: COLORS.t3, fontSize: 11, marginTop: 4 }}>
+              {actionsDone < 2 ? 'Slow start — pick it up' : actionsDone < 5 ? "Moving — don't stop" : 'Strong day'}
+            </Text>
           </View>
           <View style={{ alignItems: 'center' }}>
             <Text style={{ fontSize: 24 }}>🔥</Text>
-            <Text style={{ color: COLORS.primary, fontSize: 18, fontWeight: '700' }}>{data.streak}</Text>
+            <Text style={{ color: COLORS.primary, fontSize: 18, fontWeight: '700' }}>{data.streak || 0}</Text>
             <Text style={{ color: COLORS.t3, fontSize: 9 }}>streak</Text>
           </View>
         </View>
@@ -83,6 +158,7 @@ const s = StyleSheet.create({
   greeting: { fontSize: 22, fontWeight: '700', color: COLORS.t1 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   challengeLabel: { color: COLORS.accent, fontSize: 10, fontWeight: '600', letterSpacing: 1 },
+  iconBox: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   checkbox: { width: 22, height: 22, borderRadius: 7, borderWidth: 2, borderColor: COLORS.t3, alignItems: 'center', justifyContent: 'center' },
   checkboxDone: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
