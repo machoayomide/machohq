@@ -31,8 +31,9 @@ export default function OnboardingScreen({ onDone }) {
     await setData('pin', pin);
     await setData('profile', { name: name.trim(), rank, joined: today() });
     await setData('appData', { qpv: parseFloat(startQpv) || 0, streak: 0 });
-    if (apiKey.trim().startsWith('sk-')) {
-      await setData('anthropicKey', apiKey.trim());
+    if (apiKey.trim().length > 10) {
+      await setData('aiProvider', 'gemini');
+      await setData('aiKey_gemini', apiKey.trim());
       clearKeyCache();
     }
     await setData('onboarded', true);
@@ -154,36 +155,37 @@ export default function OnboardingScreen({ onDone }) {
           <Text style={s.stepTitle}>Turn on the AI</Text>
           <Text style={s.stepDesc}>
             About half of this app runs on AI — drafting messages, auditing gigs, researching what
-            sells, grading your skills. It needs your own key.
+            sells, grading your skills. Google Gemini is free and takes two minutes to set up.
           </Text>
 
           <Card style={{ marginTop: 20 }}>
-            <Text style={{ color: COLORS.t2, fontSize: 12, lineHeight: 19 }}>
-              1. Go to console.anthropic.com{'\n'}
-              2. Sign up and create an API key{'\n'}
-              3. Add a few dollars of credit{'\n'}
-              4. Paste the key below
+            <Badge text="Free — no card needed" color={COLORS.primary} />
+            <Text style={{ color: COLORS.t2, fontSize: 12, lineHeight: 19, marginTop: 10 }}>
+              1. Open aistudio.google.com/apikey{'\n'}
+              2. Sign in with Google{'\n'}
+              3. Tap Create API key{'\n'}
+              4. Paste it below
             </Text>
-            <TouchableOpacity onPress={() => Linking.openURL('https://console.anthropic.com').catch(() => {})}>
+            <TouchableOpacity onPress={() => Linking.openURL('https://aistudio.google.com/apikey').catch(() => {})}>
               <Text style={{ color: COLORS.primary, fontSize: 12, marginTop: 10 }}>
-                Open console.anthropic.com →
+                Open Google AI Studio →
               </Text>
             </TouchableOpacity>
 
             <View style={{ height: 16 }} />
-            <Input value={apiKey} onChangeText={setApiKey} placeholder="sk-ant-api03-..." />
+            <Input value={apiKey} onChangeText={setApiKey} placeholder="AIza..." />
 
-            {apiKey.trim().startsWith('sk-') && (
+            {apiKey.trim().length > 10 && (
               <Text style={{ color: COLORS.primary, fontSize: 11, marginTop: 8 }}>
-                Key looks right. AI features will be live.
+                Key saved. AI features will be live.
               </Text>
             )}
           </Card>
 
           <Card style={{ borderLeftWidth: 3, borderLeftColor: COLORS.warn }}>
             <Text style={{ color: COLORS.t2, fontSize: 11, lineHeight: 17 }}>
-              You can skip this and add it later in More → Settings. Everything else works without
-              it — only the AI features stay switched off.
+              You can skip this and add it later in More → Settings, where you can also switch to
+              Groq, OpenRouter or Claude. Everything else works without a key.
             </Text>
           </Card>
         </View>

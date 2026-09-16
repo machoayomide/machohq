@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import { Card, Badge, Btn, Input, TabBar } from '../components/UI';
 import { getData, setData, today, daysBetween } from '../utils/storage';
-import { askClaude, hasApiKey } from '../utils/ai';
+import { askClaude, hasApiKey, activeProviderInfo } from '../utils/ai';
 
 const TOPICS = [
   {
@@ -116,9 +116,11 @@ export default function ResearchScreen() {
   const [customQuery, setCustomQuery] = useState('');
   const [customResult, setCustomResult] = useState('');
   const [keyed, setKeyed] = useState(true);
+  const [prov, setProv] = useState(null);
 
   useEffect(() => {
     hasApiKey().then(setKeyed);
+    activeProviderInfo().then(setProv);
     getData('researchResults').then(r => { if (r) setResults(r); });
   }, []);
 
@@ -188,8 +190,20 @@ export default function ResearchScreen() {
         <Card style={{ borderLeftWidth: 3, borderLeftColor: COLORS.warn }}>
           <Text style={{ color: COLORS.warn, fontSize: 12, fontWeight: '600' }}>API key needed</Text>
           <Text style={{ color: COLORS.t2, fontSize: 11, marginTop: 4, lineHeight: 17 }}>
-            Research runs on live web search through Claude. Add your Anthropic API key in
-            HQ → Settings → AI Key to switch it on.
+            Research runs on live web search. Add a free Google Gemini key in More → Settings
+            → AI Provider to switch it on. Takes two minutes, no card needed.
+          </Text>
+        </Card>
+      )}
+
+      {prov && prov.hasKey && !prov.webSearch && (
+        <Card style={{ borderLeftWidth: 3, borderLeftColor: COLORS.warn }}>
+          <Text style={{ color: COLORS.warn, fontSize: 12, fontWeight: '600' }}>
+            {prov.name} cannot search the web
+          </Text>
+          <Text style={{ color: COLORS.t2, fontSize: 11, marginTop: 4, lineHeight: 17 }}>
+            Answers here will come from training data, not live results, so they may be months out
+            of date. Switch to Gemini in Settings for real research — it is free.
           </Text>
         </Card>
       )}
@@ -269,9 +283,9 @@ export default function ResearchScreen() {
 
       <Card style={{ backgroundColor: COLORS.surface }}>
         <Text style={{ color: COLORS.t3, fontSize: 10, lineHeight: 16 }}>
-          Every answer here comes from a live web search at the moment you tap the button.
-          Nothing is pulled from the model's memory. Results are stamped with the date they
-          were pulled, and flagged when they go stale.
+          With a provider that supports it, every answer comes from a live web search at the
+          moment you tap the button. Results are stamped with the date they were pulled and
+          flagged when they go stale.
         </Text>
       </Card>
     </ScrollView>
