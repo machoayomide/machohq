@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { COLORS } from '../theme';
 import { Card, Badge, Btn, Input } from '../components/UI';
 import { today } from '../utils/storage';
-import { EARNING_STAGES, SELLABLE_SKILLS } from '../data/constants';
+import { SKILL_LEVELS, SKILL_SUGGESTIONS, monthKey } from '../data/constants';
 
 export default function AddDownlineScreen({ team, onSave, onCancel }) {
   const [step, setStep] = useState(1);
@@ -13,6 +13,8 @@ export default function AddDownlineScreen({ team, onSave, onCancel }) {
   const [sponsor, setSponsor] = useState(null);
   const [status, setStatus] = useState(null);
   const [earning, setEarning] = useState(null);
+  const [skillInput, setSkillInput] = useState('');
+  const [earnedNow, setEarnedNow] = useState(null);
   const [skills, setSkills] = useState([]);
 
   const canNext = () => {
@@ -51,8 +53,11 @@ export default function AddDownlineScreen({ team, onSave, onCancel }) {
       sponsor: direct ? 'You' : sponsor?.name || 'You',
       sponsorId: direct ? null : sponsor?.id,
       status: status,
-      earningStage: earning,
+      skillLevel: earning,
       skills: skills,
+      income: earnedNow === null ? {} : {
+        [monthKey()]: { earned: earnedNow, updated: new Date().toISOString() },
+      },
       pv: 0,
       pvLog: [],
       joined: today(),
@@ -178,49 +183,90 @@ export default function AddDownlineScreen({ team, onSave, onCancel }) {
         </View>
       )}
 
-      {/* STEP 5: Earning ability */}
+      {/* STEP 5: Skills and income */}
       {step === 5 && (
         <View style={{ marginTop: 20 }}>
-          <Text style={s.stepTitle}>Can they earn yet?</Text>
+          <Text style={s.stepTitle}>Can they earn?</Text>
           <Text style={s.stepDesc}>
-            PV needs money. Money needs a skill that sells. Be honest about where {name} actually
-            is — chasing PV from someone with no income is wasted effort.
+            PV needs money every month. Skill is permanent, income is monthly — track both.
           </Text>
 
-          {EARNING_STAGES.map(st => (
-            <TouchableOpacity key={st.id} onPress={() => setEarning(st.id)}
-              style={[s.typeCard, earning === st.id && { borderColor: st.color, backgroundColor: st.color + '0a' }]}>
-              <View style={[s.typeIcon, { backgroundColor: st.color + '22' }]}>
-                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: st.color }} />
+          <Card style={{ marginTop: 16 }}>
+            <Text style={{ color: COLORS.t2, fontSize: 12, marginBottom: 8 }}>
+              What can they do? Type anything.
+            </Text>
+            {skills.length > 0 && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                {skills.map(sk => (
+                  <TouchableOpacity key={sk} onPress={() => setSkills(prev => prev.filter(x => x !== sk))}
+                    style={s.activeSkill}>
+                    <Text style={{ color: COLORS.primary, fontSize: 11 }}>{sk} ×</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Input value={skillInput} onChangeText={setSkillInput} placeholder="e.g. 2D art, AI video" />
+              </View>
+              <Btn onPress={() => {
+                const c = skillInput.trim();
+                if (c && !skills.includes(c)) setSkills(prev => [...prev, c]);
+                setSkillInput('');
+              }}>Add</Btn>
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 10 }}>
+              {SKILL_SUGGESTIONS.filter(sk => !skills.includes(sk)).slice(0, 10).map(sk => (
+                <TouchableOpacity key={sk} onPress={() => setSkills(prev => [...prev, sk])} style={s.skillTag}>
+                  <Text style={{ color: COLORS.t3, fontSize: 10 }}>+ {sk}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Card>
+
+          <Text style={{ color: COLORS.t2, fontSize: 12, marginBottom: 8, marginTop: 4 }}>
+            Can they deliver paid work?
+          </Text>
+          {SKILL_LEVELS.map(l => (
+            <TouchableOpacity key={l.id} onPress={() => setEarning(l.id)}
+              style={[s.typeCard, earning === l.id && { borderColor: l.color, backgroundColor: l.color + '0a' }]}>
+              <View style={[s.typeIcon, { backgroundColor: l.color + '22' }]}>
+                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: l.color }} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[s.typeTitle, earning === st.id && { color: st.color }]}>{st.label}</Text>
-                <Text style={s.typeDesc}>{st.desc}</Text>
+                <Text style={[s.typeTitle, earning === l.id && { color: l.color }]}>{l.label}</Text>
+                <Text style={s.typeDesc}>{l.desc}</Text>
               </View>
-              {earning === st.id && (
-                <View style={[s.checkCircle, { backgroundColor: st.color }]}>
+              {earning === l.id && (
+                <View style={[s.checkCircle, { backgroundColor: l.color }]}>
                   <Text style={{ color: COLORS.bg, fontSize: 14 }}>✓</Text>
                 </View>
               )}
             </TouchableOpacity>
           ))}
 
-          {earning && earning !== 'none' && (
-            <Card style={{ marginTop: 12 }}>
-              <Text style={{ color: COLORS.t2, fontSize: 12, marginBottom: 8 }}>
-                What skill? (tap any that apply)
-              </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                {SELLABLE_SKILLS.map(sk => (
-                  <TouchableOpacity key={sk}
-                    onPress={() => setSkills(prev => prev.includes(sk) ? prev.filter(x => x !== sk) : [...prev, sk])}
-                    style={[s.skillTag, skills.includes(sk) && { borderColor: COLORS.primary, backgroundColor: COLORS.primary + '22' }]}>
-                    <Text style={{ color: skills.includes(sk) ? COLORS.primary : COLORS.t3, fontSize: 10 }}>{sk}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </Card>
-          )}
+          <Card style={{ marginTop: 14 }}>
+            <Text style={{ color: COLORS.t2, fontSize: 12, marginBottom: 4 }}>
+              Have they made money online this month?
+            </Text>
+            <Text style={{ color: COLORS.t3, fontSize: 10, marginBottom: 10 }}>
+              Skip if you do not know — you can log it later on their page.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity onPress={() => setEarnedNow(true)}
+                style={[s.yesNo, earnedNow === true && { borderColor: COLORS.primary, backgroundColor: COLORS.primary + '22' }]}>
+                <Text style={{ color: earnedNow === true ? COLORS.primary : COLORS.t3, fontSize: 12 }}>Yes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setEarnedNow(false)}
+                style={[s.yesNo, earnedNow === false && { borderColor: COLORS.danger, backgroundColor: COLORS.danger + '22' }]}>
+                <Text style={{ color: earnedNow === false ? COLORS.danger : COLORS.t3, fontSize: 12 }}>No</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setEarnedNow(null)}
+                style={[s.yesNo, earnedNow === null && { borderColor: COLORS.t2, backgroundColor: COLORS.surface }]}>
+                <Text style={{ color: earnedNow === null ? COLORS.t2 : COLORS.t3, fontSize: 12 }}>Do not know</Text>
+              </TouchableOpacity>
+            </View>
+          </Card>
         </View>
       )}
 
@@ -254,10 +300,10 @@ export default function AddDownlineScreen({ team, onSave, onCancel }) {
               <Badge text={status} color={status === 'Distributor' ? COLORS.primary : status === 'Pro' ? COLORS.accent : COLORS.blue} />
             </View>
             <View style={[s.confirmRow, skills.length === 0 && { borderBottomWidth: 0 }]}>
-              <Text style={s.confirmLabel}>Can earn</Text>
+              <Text style={s.confirmLabel}>Skill level</Text>
               {earning ? (
-                <Badge text={EARNING_STAGES.find(e => e.id === earning)?.label || earning}
-                  color={EARNING_STAGES.find(e => e.id === earning)?.color || COLORS.t3} />
+                <Badge text={SKILL_LEVELS.find(e => e.id === earning)?.label || earning}
+                  color={SKILL_LEVELS.find(e => e.id === earning)?.color || COLORS.t3} />
               ) : <Text style={s.confirmValue}>—</Text>}
             </View>
             {skills.length > 0 && (
@@ -324,7 +370,9 @@ const s = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border,
   },
-  skillTag: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border },
+  skillTag: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 7, borderWidth: 1, borderColor: COLORS.border },
+  activeSkill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: COLORS.primary, backgroundColor: COLORS.primary + '18' },
+  yesNo: { flex: 1, paddingVertical: 11, borderRadius: 9, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center' },
   confirmLabel: { color: COLORS.t3, fontSize: 12 },
   confirmValue: { color: COLORS.t1, fontSize: 13, fontWeight: '600' },
 });

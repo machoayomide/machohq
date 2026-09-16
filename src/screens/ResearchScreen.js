@@ -5,7 +5,6 @@ import { COLORS } from '../theme';
 import { Card, Badge, Btn, Input, TabBar } from '../components/UI';
 import { getData, setData, today, daysBetween } from '../utils/storage';
 import { askClaude, hasApiKey } from '../utils/ai';
-import { SELLABLE_SKILLS } from '../data/constants';
 
 const TOPICS = [
   {

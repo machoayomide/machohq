@@ -5,7 +5,7 @@ import { COLORS } from '../theme';
 import { askClaude } from '../utils/ai';
 import { Card, Badge, Btn, ProgressBar } from '../components/UI';
 import { today, daysBetween } from '../utils/storage';
-import { CHALLENGE, PIPELINE_STAGES, earningStage } from '../data/constants';
+import { CHALLENGE, PIPELINE_STAGES, earnedThisMonth, earnedLastMonth, incomeForMonth, monthKey } from '../data/constants';
 import { buildKnowledgeContext } from '../utils/knowledge';
 import { buildUserContext } from '../utils/userLibrary';
 
@@ -25,9 +25,11 @@ export default function DailyBriefScreen({ team, prospects, data, books, onBack 
   const dailyPVNeeded = daysInMonth > 0 ? (qpvGap / daysInMonth).toFixed(1) : qpvGap;
 
   // ─── Who needs attention ───
-  const canEarn = (m) => ['profile', 'earning'].includes(m.earningStage || 'none');
-  const zeroPV = (team || []).filter(m => m.pv === 0 && canEarn(m));
-  const needIncome = (team || []).filter(m => m.pv === 0 && !canEarn(m));
+  // Only chase PV from people who actually have money this month
+  const zeroPV = (team || []).filter(m => m.pv === 0 && earnedThisMonth(m));
+  const needIncome = (team || []).filter(m => m.pv === 0 && !earnedThisMonth(m));
+  const slipped = (team || []).filter(m => earnedLastMonth(m) && !earnedThisMonth(m));
+  const notAsked = (team || []).filter(m => !incomeForMonth(m, monthKey()));
   const partialPV = (team || []).filter(m => m.pv > 0 && m.pv < 250);
   const coldTeam = (team || []).filter(m => daysBetween(m.lastContact || m.joined, today()) >= 7);
   const overdueProspects = (prospects || [])
@@ -177,14 +179,15 @@ Rules:
         <View style={{ marginBottom: 8 }}>
           <View style={s.sectionHeader}>
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.t3 }} />
-            <Text style={s.sectionTitle}>Cannot pay yet — fix income first</Text>
+            <Text style={s.sectionTitle}>No income this month yet</Text>
             <Badge text={String(needIncome.length)} color={COLORS.t3} />
           </View>
           <Card style={{ padding: 12 }}>
             <Text style={{ color: COLORS.t2, fontSize: 12, lineHeight: 18 }}>
-              {needIncome.map(m => m.name).join(', ')} {needIncome.length === 1 ? 'has' : 'have'} no
-              income yet. Asking for PV here just burns the relationship. Open Team → Income for a
-              researched plan on what each of them can start selling.
+              {needIncome.map(m => m.name).join(', ')} {needIncome.length === 1 ? 'has' : 'have'} not
+              earned this month. Asking for PV here just burns the relationship. Open Team → Income
+              for a researched plan.{slipped.length > 0 ? ` ${slipped.map(m => m.name).join(', ')} earned last month and slipped — start there.` : ''}
+              {notAsked.length > 0 ? ` You have not asked ${notAsked.map(m => m.name).join(', ')} at all this month.` : ''}
             </Text>
           </Card>
         </View>

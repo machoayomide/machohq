@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Share } from 'rea
 import { COLORS } from '../theme';
 import { Card, Badge, ProgressBar, Btn } from '../components/UI';
 import { today, daysBetween } from '../utils/storage';
-import { NEWBIE_REQS, earningStage } from '../data/constants';
+import { NEWBIE_REQS, skillLevel, earnedThisMonth, earningStreak, incomeForMonth, monthKey } from '../data/constants';
 
 export default function LeaderboardScreen({ team }) {
   const [sortBy, setSortBy] = useState('pv');
@@ -18,9 +18,10 @@ export default function LeaderboardScreen({ team }) {
     let score = 0;
     score += Math.min(40, (m.pv || 0) / 10);           // up to 40 for PV
     score += readiness(m) * 0.2;                        // up to 20 for requirements
-    const stageIdx = ['none', 'learning', 'ready', 'profile', 'earning']
-      .indexOf(m.earningStage || 'none');
-    score += stageIdx * 6;                              // up to 24 for income progress
+    const lvlIdx = ['none', 'learning', 'ready', 'selling'].indexOf(m.skillLevel || 'none');
+    score += lvlIdx * 5;                                // up to 15 for skill level
+    if (earnedThisMonth(m)) score += 12;                // earning this month matters most
+    score += Math.min(6, earningStreak(m) * 2);         // consistency bonus
     const days = daysBetween(m.lastContact || m.joined, today());
     score += days <= 3 ? 16 : days <= 7 ? 8 : 0;        // up to 16 for staying in touch
     return Math.round(score);
@@ -69,7 +70,8 @@ export default function LeaderboardScreen({ team }) {
       )}
 
       {sorted.map((m, i) => {
-        const stage = earningStage(m.earningStage || 'none');
+        const lvl = skillLevel(m.skillLevel || 'none');
+        const rec = incomeForMonth(m, monthKey());
         const score = activityScore(m);
         return (
           <Card key={m.id} style={{ padding: 13, borderLeftWidth: i < 3 ? 3 : 0, borderLeftColor: medalColor(i) }}>
@@ -82,7 +84,8 @@ export default function LeaderboardScreen({ team }) {
               <View style={{ flex: 1 }}>
                 <Text style={{ color: COLORS.t1, fontSize: 14, fontWeight: '600' }}>{m.name}</Text>
                 <Text style={{ color: COLORS.t3, fontSize: 10 }}>
-                  {m.status} · {stage.label}
+                  {m.status} · {lvl.label}
+                  {rec?.earned ? (rec.amount ? ` · ₦${(rec.amount/1000).toFixed(0)}k this month` : ' · earned') : ''}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>

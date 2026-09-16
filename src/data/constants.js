@@ -110,10 +110,78 @@ export function earningStage(id) {
   return EARNING_STAGES.find(s => s.id === id) || EARNING_STAGES[0];
 }
 
-// Skills the team can actually sell for fast income
-export const SELLABLE_SKILLS = [
-  'Shopify store setup', 'WordPress website', 'Graphic design', 'Video editing',
-  'Social media management', 'Copywriting', 'Data entry', 'Virtual assistant',
-  'Facebook ads', 'SEO', 'Canva design', 'Voice over', 'Transcription',
-  'Product listing', 'Lead generation', 'Mobile app', 'AI automation',
+// Starter suggestions only — skills are free text, this just saves typing.
+// Anything typed once gets remembered and offered next time.
+export const SKILL_SUGGESTIONS = [
+  '2D art', 'AI video', 'AI images', 'Video editing', 'Graphic design',
+  'Canva design', 'Logo design', 'Thumbnail design', 'Motion graphics',
+  'Shopify store', 'WordPress website', 'Landing page', 'Webflow',
+  'Social media management', 'Content writing', 'Copywriting', 'Scriptwriting',
+  'Facebook ads', 'Google ads', 'SEO', 'Email marketing',
+  'Virtual assistant', 'Data entry', 'Lead generation', 'Transcription',
+  'Voice over', 'Product listing', 'Mobile app', 'AI automation', 'Chatbot build',
 ];
+
+// Skill capability — permanent. Once someone can do the work, they can do it.
+export const SKILL_LEVELS = [
+  { id: 'none',     label: 'No skill',    short: 'None',     desc: 'Has not started learning anything sellable', color: '#ff6b6b' },
+  { id: 'learning', label: 'Learning',    short: 'Learning', desc: 'In training, cannot deliver paid work yet',   color: '#ffb347' },
+  { id: 'ready',    label: 'Can deliver', short: 'Ready',    desc: 'Skill is good enough to take paid work',      color: '#4da6ff' },
+  { id: 'selling',  label: 'Selling',     short: 'Selling',  desc: 'Profile is live and pitching for work',       color: '#7c5cfc' },
+];
+
+export function skillLevel(id) {
+  return SKILL_LEVELS.find(l => l.id === id) || SKILL_LEVELS[0];
+}
+
+// Income is monthly, like PV. Earning in August means nothing in September.
+export function monthKey(d) {
+  const date = d ? new Date(d) : new Date();
+  return date.toISOString().slice(0, 7);
+}
+
+export function prevMonthKey() {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 1);
+  return d.toISOString().slice(0, 7);
+}
+
+// Reads a member's income record for a given month.
+// earnings shape: { '2026-09': { earned: true, amount: 45000, skill: '2D art', note: '' } }
+export function incomeForMonth(member, mk) {
+  return (member?.income || {})[mk] || null;
+}
+
+export function earnedThisMonth(member) {
+  const rec = incomeForMonth(member, monthKey());
+  return !!(rec && rec.earned);
+}
+
+export function earnedLastMonth(member) {
+  const rec = incomeForMonth(member, prevMonthKey());
+  return !!(rec && rec.earned);
+}
+
+// How many months in a row, counting back from last month
+export function earningStreak(member) {
+  let streak = 0;
+  const d = new Date();
+  for (let i = 0; i < 12; i++) {
+    const mk = d.toISOString().slice(0, 7);
+    const rec = incomeForMonth(member, mk);
+    if (rec && rec.earned) streak++;
+    else if (i > 0) break;
+    d.setMonth(d.getMonth() - 1);
+  }
+  return streak;
+}
+
+// Days since you last logged anything about their income
+export function incomeDataAge(member) {
+  const months = Object.keys(member?.income || {});
+  if (months.length === 0) return null;
+  const latest = months.sort().pop();
+  const rec = (member.income || {})[latest];
+  if (!rec?.updated) return null;
+  return Math.floor((Date.now() - new Date(rec.updated)) / 86400000);
+}

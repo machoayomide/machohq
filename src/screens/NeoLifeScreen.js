@@ -4,7 +4,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import { Card, Badge, ProgressBar, Ring, Btn, Input, TabBar } from '../components/UI';
 import { daysBetween, today } from '../utils/storage';
-import { CHALLENGE, NEWBIE_REQS, SVB_TIERS, getTier, REORDER_DAYS, EARNING_STAGES, earningStage, SELLABLE_SKILLS } from '../data/constants';
+import { CHALLENGE, NEWBIE_REQS, SVB_TIERS, getTier, REORDER_DAYS,
+  SKILL_LEVELS, skillLevel, monthKey, prevMonthKey, incomeForMonth,
+  earnedThisMonth, earnedLastMonth, earningStreak } from '../data/constants';
+import { IncomeLog, SkillEditor } from '../components/IncomeLog';
 import { askClaude } from '../utils/ai';
 import AddDownlineScreen from './AddDownlineScreen';
 
@@ -131,48 +134,9 @@ export default function NeoLifeScreen({ team, setTeam, data, setData }) {
           </View>
         </Card>
 
-        {/* Income readiness */}
-        {(() => {
-          const stage = earningStage(m.earningStage || 'none');
-          return (
-            <Card style={{ borderLeftWidth: 3, borderLeftColor: stage.color }}>
-              <Text style={{ color: COLORS.t3, fontSize: 10, fontWeight: '600', letterSpacing: 1 }}>
-                CAN THEY AFFORD PRODUCT?
-              </Text>
-              <Text style={{ color: stage.color, fontSize: 14, fontWeight: '700', marginTop: 4 }}>
-                {stage.label}
-              </Text>
-              <Text style={{ color: COLORS.t2, fontSize: 11, marginTop: 2 }}>{stage.desc}</Text>
-              <View style={{ flexDirection: 'row', gap: 4, marginTop: 10 }}>
-                {EARNING_STAGES.map(st => (
-                  <TouchableOpacity key={st.id}
-                    onPress={() => updateMember(m.id, { earningStage: st.id })}
-                    style={{
-                      flex: 1, height: 30, borderRadius: 7, alignItems: 'center', justifyContent: 'center',
-                      backgroundColor: (m.earningStage || 'none') === st.id ? st.color + '33' : COLORS.bg,
-                      borderWidth: 1,
-                      borderColor: (m.earningStage || 'none') === st.id ? st.color : COLORS.border,
-                    }}>
-                    <Text style={{ fontSize: 9, color: (m.earningStage || 'none') === st.id ? st.color : COLORS.t3 }}>
-                      {st.label.split(' ')[0]}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {(m.earningStage || 'none') === 'none' && (
-                <Text style={{ color: COLORS.warn, fontSize: 11, marginTop: 10, lineHeight: 17 }}>
-                  Do not push PV here. Get them a skill first — open the Income tab for a
-                  researched plan.
-                </Text>
-              )}
-              {(m.skills || []).length > 0 && (
-                <Text style={{ color: COLORS.t3, fontSize: 10, marginTop: 8 }}>
-                  Skills: {(m.skills || []).join(', ')}
-                </Text>
-              )}
-            </Card>
-          );
-        })()}
+        <SkillEditor member={m} onUpdate={(changes) => updateMember(m.id, changes)} />
+        <IncomeLog member={m} onUpdate={(changes) => updateMember(m.id, changes)} />
+
 
         {dueReorder && (
           <Card style={{ borderLeftWidth: 3, borderLeftColor: COLORS.warn }}>
@@ -521,103 +485,168 @@ export default function NeoLifeScreen({ team, setTeam, data, setData }) {
         <View>
           <Card style={{ borderLeftWidth: 3, borderLeftColor: COLORS.warn }}>
             <Text style={{ color: COLORS.warn, fontSize: 10, fontWeight: '600', letterSpacing: 1 }}>
-              THE REAL ORDER
+              INCOME IS MONTHLY
             </Text>
             <Text style={{ color: COLORS.t2, fontSize: 12, marginTop: 6, lineHeight: 18 }}>
-              Skill first, then income, then PV. Chasing PV from someone with no money is
-              wasted effort — and it kills the relationship. Fix their income and PV follows.
+              Earning in August means nothing for September PV. Skill is permanent, income is not.
+              Someone who earned three months straight then stopped is your most urgent problem —
+              they had momentum and lost it.
             </Text>
           </Card>
 
-          {/* Funnel counts */}
+          {/* This month vs last month */}
           <Card>
-            <Text style={s.sectionTitle}>Where your team stands</Text>
-            {EARNING_STAGES.map(st => {
-              const members = (team || []).filter(m => (m.earningStage || 'none') === st.id);
-              return (
-                <View key={st.id} style={s.earnRow}>
-                  <View style={[s.earnDot, { backgroundColor: st.color }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: COLORS.t1, fontSize: 12 }}>{st.label}</Text>
-                    <Text style={{ color: COLORS.t3, fontSize: 9 }}>{st.desc}</Text>
-                  </View>
-                  <Badge text={String(members.length)} color={st.color} />
-                </View>
-              );
-            })}
-            <View style={{ marginTop: 10, padding: 10, backgroundColor: COLORS.bg, borderRadius: 8 }}>
-              <Text style={{ color: COLORS.t2, fontSize: 11 }}>
-                {(team || []).filter(m => m.earningStage === 'earning').length} of {(team || []).length} can
-                actually afford product right now.
-              </Text>
+            <Text style={s.sectionTitle}>Who earned</Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
+              <View style={{ flex: 1, padding: 12, backgroundColor: COLORS.bg, borderRadius: 10 }}>
+                <Text style={{ color: COLORS.t3, fontSize: 10 }}>This month</Text>
+                <Text style={{ fontSize: 24, fontWeight: '800', color: COLORS.primary }}>
+                  {(team || []).filter(m => earnedThisMonth(m)).length}
+                  <Text style={{ fontSize: 13, color: COLORS.t3 }}> / {(team || []).length}</Text>
+                </Text>
+              </View>
+              <View style={{ flex: 1, padding: 12, backgroundColor: COLORS.bg, borderRadius: 10 }}>
+                <Text style={{ color: COLORS.t3, fontSize: 10 }}>Last month</Text>
+                <Text style={{ fontSize: 24, fontWeight: '800', color: COLORS.t2 }}>
+                  {(team || []).filter(m => earnedLastMonth(m)).length}
+                  <Text style={{ fontSize: 13, color: COLORS.t3 }}> / {(team || []).length}</Text>
+                </Text>
+              </View>
             </View>
           </Card>
 
-          {/* Per-member income status */}
+          {/* Slipped — earned last month, nothing this month */}
+          {(() => {
+            const slipped = (team || []).filter(m => earnedLastMonth(m) && !earnedThisMonth(m));
+            if (slipped.length === 0) return null;
+            return (
+              <Card style={{ borderLeftWidth: 3, borderLeftColor: COLORS.danger }}>
+                <Text style={{ color: COLORS.danger, fontSize: 10, fontWeight: '600', letterSpacing: 1 }}>
+                  SLIPPED THIS MONTH
+                </Text>
+                <Text style={{ color: COLORS.t3, fontSize: 11, marginTop: 4, marginBottom: 8 }}>
+                  Earned last month, nothing logged this month.
+                </Text>
+                {slipped.map(m => (
+                  <TouchableOpacity key={m.id} onPress={() => setDet(m.id)} style={s.pvRow}>
+                    <View style={[s.pvDot, { backgroundColor: COLORS.danger }]} />
+                    <Text style={{ color: COLORS.t1, fontSize: 12, flex: 1 }}>{m.name}</Text>
+                    <Text style={{ color: COLORS.t3, fontSize: 10 }}>
+                      {(() => { const r = incomeForMonth(m, prevMonthKey()); return r?.amount ? `made ₦${(r.amount/1000).toFixed(0)}k` : 'earned'; })()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </Card>
+            );
+          })()}
+
+          {/* Not asked yet */}
+          {(() => {
+            const unknown = (team || []).filter(m => !incomeForMonth(m, monthKey()));
+            if (unknown.length === 0) return null;
+            return (
+              <Card style={{ borderLeftWidth: 3, borderLeftColor: COLORS.t3 }}>
+                <Text style={{ color: COLORS.t2, fontSize: 12, fontWeight: '600' }}>
+                  {unknown.length} not asked about this month
+                </Text>
+                <Text style={{ color: COLORS.t3, fontSize: 11, marginTop: 4, lineHeight: 17 }}>
+                  {unknown.map(m => m.name).join(', ')}. You cannot plan PV without knowing who has
+                  money. Ask, then log it on their page.
+                </Text>
+              </Card>
+            );
+          })()}
+
+          {/* Skill capability funnel */}
+          <Card>
+            <Text style={s.sectionTitle}>Skill capability</Text>
+            <Text style={{ color: COLORS.t3, fontSize: 10, marginBottom: 8 }}>
+              Permanent — this does not reset monthly.
+            </Text>
+            {SKILL_LEVELS.map(l => {
+              const members = (team || []).filter(m => (m.skillLevel || 'none') === l.id);
+              return (
+                <View key={l.id} style={s.earnRow}>
+                  <View style={[s.earnDot, { backgroundColor: l.color }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: COLORS.t1, fontSize: 12 }}>{l.label}</Text>
+                    <Text style={{ color: COLORS.t3, fontSize: 9 }}>{l.desc}</Text>
+                  </View>
+                  <Badge text={String(members.length)} color={l.color} />
+                </View>
+              );
+            })}
+          </Card>
+
+          {/* Per member */}
           {(team || []).length === 0 && (
             <Card style={{ alignItems: 'center', padding: 24 }}>
-              <Text style={{ color: COLORS.t3, fontSize: 12 }}>Add team members to track their income path</Text>
+              <Text style={{ color: COLORS.t3, fontSize: 12 }}>Add team members to track income</Text>
             </Card>
           )}
 
           {(team || []).map(m => {
-            const stage = earningStage(m.earningStage || 'none');
+            const lvl = skillLevel(m.skillLevel || 'none');
+            const thisRec = incomeForMonth(m, monthKey());
+            const streak = earningStreak(m);
             const advice = coachAdvice[m.id];
             return (
               <Card key={m.id} style={{ padding: 13 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <View style={[s.earnDot, { backgroundColor: stage.color, width: 10, height: 10, borderRadius: 5 }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: COLORS.t1, fontSize: 13, fontWeight: '600' }}>{m.name}</Text>
-                    <Text style={{ color: stage.color, fontSize: 10 }}>{stage.label}</Text>
-                  </View>
-                  <Text style={{ color: m.pv > 0 ? COLORS.primary : COLORS.t3, fontSize: 11 }}>{m.pv} PV</Text>
-                </View>
-
-                {/* Stage selector */}
-                <View style={{ flexDirection: 'row', gap: 4, marginBottom: 8 }}>
-                  {EARNING_STAGES.map(st => (
-                    <TouchableOpacity key={st.id}
-                      onPress={() => updateMember(m.id, { earningStage: st.id })}
-                      style={{
-                        flex: 1, height: 26, borderRadius: 6, alignItems: 'center', justifyContent: 'center',
-                        backgroundColor: (m.earningStage || 'none') === st.id ? st.color + '33' : COLORS.bg,
-                        borderWidth: 1,
-                        borderColor: (m.earningStage || 'none') === st.id ? st.color : COLORS.border,
-                      }}>
-                      <Text style={{ fontSize: 9, color: (m.earningStage || 'none') === st.id ? st.color : COLORS.t3 }}>
-                        {st.label.split(' ')[0]}
+                <TouchableOpacity onPress={() => setDet(m.id)}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                    <View style={[s.earnDot, { backgroundColor: lvl.color, width: 10, height: 10, borderRadius: 5 }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: COLORS.t1, fontSize: 13, fontWeight: '600' }}>{m.name}</Text>
+                      <Text style={{ color: COLORS.t3, fontSize: 10 }}>
+                        {lvl.label}{(m.skills || []).length > 0 ? ` · ${(m.skills || []).join(', ')}` : ''}
                       </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                    </View>
+                    {thisRec ? (
+                      <Badge
+                        text={thisRec.earned ? (thisRec.amount ? `₦${(thisRec.amount/1000).toFixed(0)}k` : 'Earned') : 'Nothing'}
+                        color={thisRec.earned ? COLORS.primary : COLORS.danger}
+                      />
+                    ) : (
+                      <Badge text="Not asked" color={COLORS.t3} />
+                    )}
+                  </View>
+                </TouchableOpacity>
 
-                {(m.skills || []).length > 0 && (
-                  <Text style={{ color: COLORS.t3, fontSize: 10, marginBottom: 8 }}>
-                    Skills: {(m.skills || []).join(', ')}
+                {streak > 1 && (
+                  <Text style={{ color: COLORS.primary, fontSize: 10, marginBottom: 8 }}>
+                    {streak} months earning in a row
                   </Text>
                 )}
 
                 <Btn full outline onPress={async () => {
                   setCoaching(m.id);
+                  const hist = Object.entries(m.income || {})
+                    .sort()
+                    .slice(-4)
+                    .map(([mk, r]) => `${mk}: ${r.earned ? (r.amount ? '₦' + r.amount : 'earned') : 'nothing'}${r.skill ? ' via ' + r.skill : ''}`)
+                    .join('; ') || 'no history logged';
                   const res = await askClaude(
-                    `A member of my NeoLife team in Nigeria needs to start earning online before they can afford product.
+                    `A member of my NeoLife team in Nigeria needs consistent monthly online income so they can buy product every month.
 
 NAME: ${m.name}
-CURRENT INCOME STAGE: ${stage.label} — ${stage.desc}
-SKILLS THEY HAVE: ${(m.skills || []).length ? (m.skills || []).join(', ') : 'none yet'}
-THEIR NEOLIFE STATUS: ${m.status}
+SKILL LEVEL: ${lvl.label} — ${lvl.desc}
+SKILLS: ${(m.skills || []).length ? (m.skills || []).join(', ') : 'none recorded'}
+INCOME HISTORY: ${hist}
+NEOLIFE STATUS: ${m.status}
 
-Search the web for what is actually selling right now on Fiverr and Upwork that someone at this exact stage could realistically start.
+Search the web for what is selling right now in their skill area.
 
-Give me a concrete plan:
-1. The single next step they should take this week
-2. Which specific service to go after and why it fits their stage
-3. Realistic timeline to first payment
-4. What they need (phone only? laptop? which free tools?)
-5. Exactly what I should say to them to get them moving
+The goal is not one lucky sale — it is money every single month, because PV is monthly.
 
-Be realistic about timelines. If they have no skill, do not pretend they will earn in two weeks. Under 250 words. Cite anything current you found.`,
+Give me:
+1. Why their income is inconsistent, based on the history above
+2. The one change that would make it repeat monthly instead of occasionally
+3. Which specific service in their skill area has steady demand right now
+4. What to do this week
+5. What I should say to them
+
+If they have never earned, focus on the fastest realistic first sale instead.
+Be realistic about timelines. Under 250 words. Cite anything current.`,
                     { maxTokens: 1100, webSearch: true }
                   );
                   setCoachAdvice(prev => ({ ...prev, [m.id]: res.ok ? res.text : res.error }));
@@ -627,7 +656,7 @@ Be realistic about timelines. If they have no skill, do not pretend they will ea
                 </Btn>
 
                 {advice && (
-                  <View style={{ marginTop: 8, padding: 11, backgroundColor: COLORS.bg, borderRadius: 9, borderLeftWidth: 2, borderLeftColor: stage.color }}>
+                  <View style={{ marginTop: 8, padding: 11, backgroundColor: COLORS.bg, borderRadius: 9, borderLeftWidth: 2, borderLeftColor: lvl.color }}>
                     <Text style={{ color: COLORS.t2, fontSize: 11, lineHeight: 18 }}>{advice}</Text>
                   </View>
                 )}
