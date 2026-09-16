@@ -8,6 +8,7 @@ const ITEMS = [
   { key: 'focus',    icon: '⏱',  label: 'Focus Engine',   sub: 'Timed work blocks with check-in' },
   { key: 'fiverr',   icon: '💼', label: 'Fiverr Hub',     sub: 'Accounts, gigs, AI gig audit' },
   { key: 'research', icon: '🔍', label: 'Research',       sub: 'Live trends, keywords, job posts' },
+  { key: 'skills',   icon: '🧠', label: 'Skill Path',     sub: 'One skill a month, graded' },
   { key: 'money',    icon: '📈', label: 'Earnings',       sub: 'Multi-currency income tracking' },
   { key: 'spending', icon: '💳', label: 'Spending',       sub: 'Budget by category' },
   { key: 'books',    icon: '📖', label: 'Books',          sub: '15 pages a day' },

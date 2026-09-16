@@ -16,6 +16,7 @@ import PipelineScreen from './src/screens/PipelineScreen';
 import FocusScreen from './src/screens/FocusScreen';
 import FiverrScreen from './src/screens/FiverrScreen';
 import ResearchScreen from './src/screens/ResearchScreen';
+import SkillsScreen from './src/screens/SkillsScreen';
 import GrowthScreen from './src/screens/GrowthScreen';
 import SpendingScreen from './src/screens/SpendingScreen';
 import ScoreScreen from './src/screens/ScoreScreen';
@@ -117,6 +118,7 @@ export default function App() {
       case 'focus':    return <FocusScreen />;
       case 'fiverr':   return <FiverrScreen accounts={accounts} setAccounts={setAccounts} gigs={gigs} setGigs={setGigs} />;
       case 'research': return <ResearchScreen />;
+      case 'skills':   return <SkillsScreen accounts={accounts} gigs={gigs} earnings={earnings} />;
       case 'money':    return <GrowthScreen earnings={earnings} setEarnings={setEarnings} books={books} setBooks={setBooks} />;
       case 'books':    return <GrowthScreen earnings={earnings} setEarnings={setEarnings} books={books} setBooks={setBooks} />;
       case 'spending': return <SpendingScreen spending={spending} setSpending={setSpending} earnings={earnings} />;
