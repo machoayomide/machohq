@@ -13,6 +13,9 @@ export default function NeoLifeScreen({ team, setTeam, data, setData }) {
   const [detail, setDetail] = useState(null);
   const [adding, setAdding] = useState(false);
   const [pvInput, setPvInput] = useState('');
+  const [memberPV, setMemberPV] = useState('');
+  const [editingPV, setEditingPV] = useState(false);
+  const [correctPV, setCorrectPV] = useState('');
 
   const qpv = data?.qpv || 0;
   const daysLeft = daysBetween(today(), CHALLENGE.end);
@@ -46,11 +49,30 @@ export default function NeoLifeScreen({ team, setTeam, data, setData }) {
     return Math.round((done / NEWBIE_REQS.length) * 100);
   };
 
+  // Add PV to a member — also adds the same amount to your QPV
   const logPV = (id, amount) => {
     const m = (team || []).find(x => x.id === id);
-    if (!m) return;
-    updateMember(id, { pv: m.pv + amount, lastOrder: today(), lastContact: today() });
+    if (!m || !amount || amount <= 0) return;
+    updateMember(id, {
+      pv: m.pv + amount,
+      lastOrder: today(),
+      lastContact: today(),
+      pvLog: [...(m.pvLog || []), { date: today(), amount }],
+    });
     setData(d => ({ ...d, qpv: (d?.qpv || 0) + amount }));
+  };
+
+  // Correct a member's PV to an exact figure — adjusts your QPV by the difference
+  const setExactPV = (id, exact) => {
+    const m = (team || []).find(x => x.id === id);
+    if (!m || exact < 0) return;
+    const diff = exact - m.pv;
+    updateMember(id, {
+      pv: exact,
+      lastOrder: exact > m.pv ? today() : m.lastOrder,
+      pvLog: [...(m.pvLog || []), { date: today(), amount: diff, corrected: true }],
+    });
+    setData(d => ({ ...d, qpv: Math.max(0, (d?.qpv || 0) + diff) }));
   };
 
   const sendWhatsApp = (phone, msg) => {
@@ -119,13 +141,72 @@ export default function NeoLifeScreen({ team, setTeam, data, setData }) {
         )}
 
         <Card>
-          <Text style={s.sectionTitle}>Log PV</Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-            {[50, 100, 250].map(v => (
-              <Btn key={v} outline full onPress={() => logPV(m.id, v)}>+{v}</Btn>
-            ))}
+          <View style={s.row}>
+            <Text style={s.sectionTitle}>Log PV</Text>
+            <TouchableOpacity onPress={() => { setEditingPV(!editingPV); setCorrectPV(String(m.pv)); }}>
+              <Text style={{ color: COLORS.t3, fontSize: 11 }}>{editingPV ? 'Cancel' : 'Correct total'}</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={{ color: COLORS.t3, fontSize: 10 }}>Adds to their PV and your QPV together.</Text>
+
+          {editingPV ? (
+            <View>
+              <Text style={{ color: COLORS.t3, fontSize: 11, marginBottom: 6 }}>
+                Set their exact PV for this month. Your QPV adjusts by the difference.
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Input value={correctPV} onChangeText={setCorrectPV} placeholder="Exact PV" keyboardType="numeric" />
+                </View>
+                <Btn onPress={() => {
+                  const v = parseFloat(correctPV);
+                  if (!isNaN(v) && v >= 0) { setExactPV(m.id, v); setCorrectPV(''); setEditingPV(false); }
+                }}>Set</Btn>
+              </View>
+              {correctPV !== '' && !isNaN(parseFloat(correctPV)) && (
+                <Text style={{ color: parseFloat(correctPV) >= m.pv ? COLORS.primary : COLORS.warn, fontSize: 11, marginTop: 6 }}>
+                  {parseFloat(correctPV) >= m.pv
+                    ? `QPV goes up by ${(parseFloat(correctPV) - m.pv).toFixed(0)}`
+                    : `QPV drops by ${(m.pv - parseFloat(correctPV)).toFixed(0)}`}
+                </Text>
+              )}
+            </View>
+          ) : (
+            <View>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Input value={memberPV} onChangeText={setMemberPV} placeholder="Enter PV (e.g. 272)" keyboardType="numeric" />
+                </View>
+                <Btn onPress={() => {
+                  const v = parseFloat(memberPV);
+                  if (!isNaN(v) && v > 0) { logPV(m.id, v); setMemberPV(''); }
+                }}>Add</Btn>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+                {[50, 100, 250].map(v => (
+                  <Btn key={v} outline full onPress={() => logPV(m.id, v)} style={{ height: 34 }}>+{v}</Btn>
+                ))}
+              </View>
+              <Text style={{ color: COLORS.t3, fontSize: 10 }}>
+                Adds to their PV and your QPV together. Current: {m.pv} PV
+              </Text>
+            </View>
+          )}
+
+          {(m.pvLog || []).length > 0 && (
+            <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border }}>
+              <Text style={{ color: COLORS.t3, fontSize: 10, fontWeight: '600', letterSpacing: 1, marginBottom: 6 }}>PV HISTORY</Text>
+              {(m.pvLog || []).slice(-6).reverse().map((entry, i) => (
+                <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
+                  <Text style={{ color: COLORS.t3, fontSize: 11 }}>
+                    {entry.date}{entry.corrected ? ' · corrected' : ''}
+                  </Text>
+                  <Text style={{ color: entry.amount >= 0 ? COLORS.primary : COLORS.warn, fontSize: 11, fontWeight: '600' }}>
+                    {entry.amount >= 0 ? '+' : ''}{entry.amount} PV
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </Card>
 
         <Card>
@@ -276,15 +357,34 @@ export default function NeoLifeScreen({ team, setTeam, data, setData }) {
 
           {/* Add QPV */}
           <Card>
-            <Text style={s.sectionTitle}>Log your own PV</Text>
+            <Text style={s.sectionTitle}>Your personal PV</Text>
+            <Text style={{ color: COLORS.t3, fontSize: 11, marginBottom: 8 }}>
+              Products you bought yourself. Team PV is logged per person under the Team tab.
+            </Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <View style={{ flex: 1 }}>
-                <Input value={pvInput} onChangeText={setPvInput} placeholder="PV amount" keyboardType="numeric" />
+                <Input value={pvInput} onChangeText={setPvInput} placeholder="Enter PV (e.g. 136)" keyboardType="numeric" />
               </View>
               <Btn onPress={() => {
                 const v = parseFloat(pvInput);
-                if (v > 0) { setData(d => ({ ...d, qpv: (d?.qpv || 0) + v })); setPvInput(''); }
+                if (!isNaN(v) && v > 0) { setData(d => ({ ...d, qpv: (d?.qpv || 0) + v })); setPvInput(''); }
               }}>Add</Btn>
+            </View>
+          </Card>
+
+          <Card>
+            <Text style={s.sectionTitle}>Correct your QPV total</Text>
+            <Text style={{ color: COLORS.t3, fontSize: 11, marginBottom: 8 }}>
+              If the app total does not match your back office, set the real figure here.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Input value={correctPV} onChangeText={setCorrectPV} placeholder={`Current: ${qpv}`} keyboardType="numeric" />
+              </View>
+              <Btn outline onPress={() => {
+                const v = parseFloat(correctPV);
+                if (!isNaN(v) && v >= 0) { setData(d => ({ ...d, qpv: v })); setCorrectPV(''); }
+              }}>Set</Btn>
             </View>
           </Card>
         </View>
