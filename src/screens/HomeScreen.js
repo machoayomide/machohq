@@ -5,7 +5,7 @@ import { COLORS } from '../theme';
 import { Card, Badge, ProgressBar } from '../components/UI';
 import { daysBetween, today, greeting, getData, setData } from '../utils/storage';
 import { CHALLENGE } from '../data/constants';
-import { requestPermissions, scheduleDaily } from '../utils/notifications';
+import { requestPermissions, scheduleDaily, scheduleAccountabilityPings } from '../utils/notifications';
 
 export default function HomeScreen({ data, dailyActions, toggleAction, team, prospects, onOpenBrief }) {
   const insets = useSafeAreaInsets();
@@ -25,6 +25,18 @@ export default function HomeScreen({ data, dailyActions, toggleAction, team, pro
       await scheduleDaily('Reading time', '15 pages. That is all. Pick up the book.', 20, 30);
       await scheduleDaily('No Excuses Journal', 'What went right today? What went wrong?', 22, 0);
       await setData('dailyRemindersSet', true);
+    })();
+  }, []);
+
+  // Random accountability pings, rescheduled once per day
+  useEffect(() => {
+    (async () => {
+      const last = await getData('pingsScheduledOn');
+      if (last === today()) return;
+      const enabled = await getData('notifsEnabled');
+      if (enabled === false) return;
+      await scheduleAccountabilityPings(9, 21, 3);
+      await setData('pingsScheduledOn', today());
     })();
   }, []);
 

@@ -102,3 +102,37 @@ export async function cancelNotification(id) {
 export async function cancelAll() {
   try { await Notifications.cancelAllScheduledNotificationsAsync(); } catch {}
 }
+
+// Random accountability pings — fired at unpredictable times so you cannot
+// game them. Schedules 3 for the rest of today within the active window.
+export async function scheduleAccountabilityPings(startHour = 9, endHour = 21, count = 3) {
+  const now = new Date();
+  const ids = [];
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const startMin = startHour * 60;
+  const endMin = endHour * 60;
+  const from = Math.max(nowMin + 30, startMin);
+  if (from >= endMin) return ids;
+
+  const slots = [];
+  for (let i = 0; i < count; i++) {
+    slots.push(from + Math.random() * (endMin - from));
+  }
+  slots.sort((a, b) => a - b);
+
+  const messages = [
+    { title: 'Where are you right now?', body: 'And what are you actually doing?' },
+    { title: 'Quick check', body: 'Is this moving you toward Director, or away?' },
+    { title: 'Accountability ping', body: 'How many people have you contacted today?' },
+    { title: 'Honest question', body: 'Phone or work? Answer truthfully.' },
+  ];
+
+  for (const slot of slots) {
+    const seconds = Math.round((slot - nowMin) * 60);
+    if (seconds < 60) continue;
+    const msg = messages[Math.floor(Math.random() * messages.length)];
+    const id = await scheduleReminder(msg.title, msg.body, seconds);
+    if (id) ids.push(id);
+  }
+  return ids;
+}

@@ -12,6 +12,7 @@ const ITEMS = [
   { key: 'money',    icon: '📈', label: 'Earnings',       sub: 'Multi-currency income tracking' },
   { key: 'spending', icon: '💳', label: 'Spending',       sub: 'Budget by category' },
   { key: 'books',    icon: '📖', label: 'Books',          sub: '15 pages a day' },
+  { key: 'leaderboard', icon: '🏆', label: 'Team Leaderboard', sub: 'Rank your team, share to WhatsApp' },
   { key: 'score',    icon: '★',  label: 'Macho Score',    sub: 'Daily discipline score' },
   { key: 'journal',  icon: '📓', label: 'Journal',        sub: 'No excuses reflection' },
   { key: 'review',   icon: '📊', label: 'Weekly Review',  sub: 'Shareable progress report' },

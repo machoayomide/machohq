@@ -8,6 +8,7 @@ import { COLORS } from './src/theme';
 import { getData, setData, today } from './src/utils/storage';
 import { DEFAULT_ACTIONS } from './src/data/constants';
 
+import OnboardingScreen from './src/screens/OnboardingScreen';
 import LockScreen from './src/screens/LockScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import DailyBriefScreen from './src/screens/DailyBriefScreen';
@@ -17,6 +18,7 @@ import FocusScreen from './src/screens/FocusScreen';
 import FiverrScreen from './src/screens/FiverrScreen';
 import ResearchScreen from './src/screens/ResearchScreen';
 import SkillsScreen from './src/screens/SkillsScreen';
+import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import GrowthScreen from './src/screens/GrowthScreen';
 import SpendingScreen from './src/screens/SpendingScreen';
 import ScoreScreen from './src/screens/ScoreScreen';
@@ -41,6 +43,7 @@ const TabIcon = ({ icon, label, focused }) => (
 
 export default function App() {
   const [locked, setLocked] = useState(true);
+  const [onboarded, setOnboarded] = useState(null);
   const [appData, setAppData] = useState({ qpv: 0, streak: 0 });
   const [team, setTeam] = useState([]);
   const [prospects, setProspects] = useState([]);
@@ -61,8 +64,9 @@ export default function App() {
       getData('appData'), getData('team'), getData('prospects'),
       getData('da_' + today()), getData('earnings'), getData('spending'),
       getData('books'), getData('fiverrAccounts'), getData('fiverrGigs'),
-      getData('journal'),
-    ]).then(([d, t, p, a, e, sp, b, fa, fg, j]) => {
+      getData('journal'), getData('onboarded'),
+    ]).then(([d, t, p, a, e, sp, b, fa, fg, j, ob]) => {
+      setOnboarded(!!ob);
       if (d) setAppData(d);
       if (t) setTeam(t);
       if (p) setProspects(p);
@@ -102,6 +106,16 @@ export default function App() {
     setDailyActions(prev => prev.map(a => a.id === id ? { ...a, done: !a.done } : a));
   }, []);
 
+  if (onboarded === null) {
+    return (<SafeAreaProvider><StatusBar style="light" />
+      <View style={{ flex: 1, backgroundColor: COLORS.bg }} /></SafeAreaProvider>);
+  }
+
+  if (!onboarded) {
+    return (<SafeAreaProvider><StatusBar style="light" />
+      <OnboardingScreen onDone={() => { setOnboarded(true); setLocked(false); }} /></SafeAreaProvider>);
+  }
+
   if (locked) {
     return (<SafeAreaProvider><StatusBar style="light" /><LockScreen onUnlock={() => setLocked(false)} /></SafeAreaProvider>);
   }
@@ -119,6 +133,7 @@ export default function App() {
       case 'fiverr':   return <FiverrScreen accounts={accounts} setAccounts={setAccounts} gigs={gigs} setGigs={setGigs} />;
       case 'research': return <ResearchScreen />;
       case 'skills':   return <SkillsScreen accounts={accounts} gigs={gigs} earnings={earnings} />;
+      case 'leaderboard': return <LeaderboardScreen team={team} />;
       case 'money':    return <GrowthScreen earnings={earnings} setEarnings={setEarnings} books={books} setBooks={setBooks} />;
       case 'books':    return <GrowthScreen earnings={earnings} setEarnings={setEarnings} books={books} setBooks={setBooks} />;
       case 'spending': return <SpendingScreen spending={spending} setSpending={setSpending} earnings={earnings} />;
