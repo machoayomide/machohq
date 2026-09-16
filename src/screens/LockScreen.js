@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Animated, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, StyleSheet, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import { getData, setData } from '../utils/storage';
@@ -47,7 +47,7 @@ export default function LockScreen({ onUnlock }) {
 
   return (
     <View style={[s.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      <Text style={s.logo}>MachoHQ</Text>
+      <Image source={require('../../assets/icon.png')} style={s.logoImg} resizeMode="contain" />
       <Text style={s.subtitle}>Your Operating System</Text>
       <Text style={s.prompt}>{isNew ? 'Create your PIN' : 'Enter PIN'}</Text>
 
@@ -72,7 +72,7 @@ export default function LockScreen({ onUnlock }) {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  logo: { fontSize: 28, fontWeight: '800', color: COLORS.primary, marginBottom: 6 },
+  logoImg: { width: 190, height: 130, marginBottom: 2 },
   subtitle: { color: COLORS.t3, fontSize: 12, marginBottom: 40 },
   prompt: { color: COLORS.t2, fontSize: 13, marginBottom: 24 },
   dotsRow: { flexDirection: 'row', gap: 18, marginBottom: 48 },

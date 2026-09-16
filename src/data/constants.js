@@ -50,3 +50,21 @@ export const DEFAULT_ACTIONS = [
 
 export const EARNING_FEES = { Fiverr: 0.2, Upwork: 0.1, Direct: 0 };
 export const NAIRA_RATE = 1500;
+// NeoLife rank ladder — SVB percentage by QPV bracket
+export const SVB_TIERS = [
+  { rank: 'Full Distributor', min: 250, max: 499, svb: 3 },
+  { rank: 'Manager', min: 500, max: 999, svb: 5 },
+  { rank: 'Senior Manager', min: 1000, max: 1999, svb: 10 },
+  { rank: 'Executive Manager', min: 2000, max: 3999, svb: 15 },
+  { rank: 'Director', min: 4000, max: Infinity, svb: 25 },
+];
+
+export function getTier(qpv) {
+  for (let i = SVB_TIERS.length - 1; i >= 0; i--) {
+    if (qpv >= SVB_TIERS[i].min) return SVB_TIERS[i];
+  }
+  return { rank: 'Distributor', min: 0, max: 249, svb: 0 };
+}
+
+// Product reorder cycles in days
+export const REORDER_DAYS = 30;
