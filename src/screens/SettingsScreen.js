@@ -6,6 +6,7 @@ import { Card, Badge, Btn, Input } from '../components/UI';
 import { getData, setData, removeData } from '../utils/storage';
 import { requestPermissions, cancelAll, scheduleDaily } from '../utils/notifications';
 import { getBookCount, listBooks } from '../utils/knowledge';
+import { clearKeyCache } from '../utils/ai';
 
 export default function SettingsScreen({ team, prospects, earnings, spending, books, accounts, gigs, journal, data, onBack }) {
   const insets = useSafeAreaInsets();
@@ -13,9 +14,12 @@ export default function SettingsScreen({ team, prospects, earnings, spending, bo
   const [newPin, setNewPin] = useState('');
   const [notifsOn, setNotifsOn] = useState(true);
   const [showBooks, setShowBooks] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [savedKey, setSavedKey] = useState('');
 
   useEffect(() => {
     getData('notifsEnabled').then(v => { if (v !== null) setNotifsOn(v); });
+    getData('anthropicKey').then(k => { if (k) setSavedKey(k); });
   }, []);
 
   const toggleNotifs = async (val) => {
@@ -137,6 +141,50 @@ export default function SettingsScreen({ team, prospects, earnings, spending, bo
             thumbColor={notifsOn ? COLORS.primary : COLORS.t3} />} />
         <Row icon="⏱" label="Focus block alerts" sub="Fires when a block ends, even if app is closed"
           right={<Badge text="Always on" color={COLORS.primary} />} />
+      </Card>
+
+      {/* AI Key */}
+      <Text style={s.sectionLabel}>AI KEY</Text>
+      <Card>
+        <Text style={{ color: COLORS.t2, fontSize: 12, lineHeight: 18, marginBottom: 10 }}>
+          The AI features need your own Anthropic API key. Get one free at console.anthropic.com,
+          add a few dollars of credit, then paste the key here. Without it the AI, gig audits,
+          message drafting and research will not run.
+        </Text>
+        {savedKey ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <Badge text="Key saved" color={COLORS.primary} />
+            <Text style={{ color: COLORS.t3, fontSize: 11 }}>
+              sk-...{savedKey.slice(-6)}
+            </Text>
+          </View>
+        ) : (
+          <Badge text="No key set — AI is off" color={COLORS.danger} />
+        )}
+        <View style={{ height: 10 }} />
+        <Input value={apiKey} onChangeText={setApiKey} placeholder="sk-ant-api03-..." />
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+          <Btn full onPress={async () => {
+            const k = apiKey.trim();
+            if (!k.startsWith('sk-')) {
+              Alert.alert('Not a valid key', 'Anthropic keys start with sk-ant-.');
+              return;
+            }
+            await setData('anthropicKey', k);
+            clearKeyCache();
+            setSavedKey(k);
+            setApiKey('');
+            Alert.alert('Saved', 'AI features are now active.');
+          }}>Save key</Btn>
+          {savedKey ? (
+            <Btn full outline onPress={async () => {
+              await setData('anthropicKey', '');
+              clearKeyCache();
+              setSavedKey('');
+              Alert.alert('Removed', 'AI features are now off.');
+            }}>Remove</Btn>
+          ) : null}
+        </View>
       </Card>
 
       {/* AI */}

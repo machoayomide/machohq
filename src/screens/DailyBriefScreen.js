@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking, Share } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
+import { askClaude } from '../utils/ai';
 import { Card, Badge, Btn, ProgressBar } from '../components/UI';
 import { today, daysBetween } from '../utils/storage';
 import { CHALLENGE, PIPELINE_STAGES } from '../data/constants';
@@ -53,16 +54,7 @@ export default function DailyBriefScreen({ team, prospects, data, books, onBack 
       type === 'prospect' ? 'prospecting follow up objection' : 'team coaching motivation retention'
     );
 
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 400,
-          messages: [{
-            role: 'user',
-            content: `Write a short WhatsApp message I can send right now. I'm Macho, a NeoLife Senior Manager in Nigeria working toward Director.
+    const result = await askClaude(`Write a short WhatsApp message I can send right now. I'm Macho, a NeoLife Senior Manager in Nigeria working toward Director.
 
 SITUATION: ${situation}
 ${knowledge}
@@ -73,16 +65,9 @@ Rules:
 - No emoji spam, one at most
 - Don't beg or guilt them
 - Give them a reason to reply
-- Just the message text, nothing else`
-          }]
-        })
-      });
-      const json = await res.json();
-      const text = json.content?.filter(b => b.type === 'text').map(b => b.text).join('').trim() || 'Could not draft. Try again.';
-      setDrafts(prev => ({ ...prev, [key]: text }));
-    } catch {
-      setDrafts(prev => ({ ...prev, [key]: 'Connection error. Check your network.' }));
-    }
+- Just the message text, nothing else`, { maxTokens: 400 });
+
+    setDrafts(prev => ({ ...prev, [key]: result.ok ? result.text : result.error }));
     setLoadingFor(null);
   };
 
@@ -158,9 +143,13 @@ Rules:
           <Text style={{ color: COLORS.t2, fontSize: 13 }}>QPV to close this month</Text>
         </View>
         <ProgressBar value={data?.qpv || 0} max={monthTarget} height={6} color={COLORS.primary} />
+        <Text style={{ color: COLORS.t2, fontSize: 11, marginTop: 8, lineHeight: 17 }}>
+          PV comes from product orders, and orders need money. Focus on who can actually pay
+          this month, not on spreading the gap evenly across everyone.
+        </Text>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
           <Text style={{ color: COLORS.t3, fontSize: 11 }}>{daysInMonth} days left in cycle</Text>
-          <Text style={{ color: COLORS.danger, fontSize: 11, fontWeight: '600' }}>{dailyPVNeeded} PV/day needed</Text>
+          <Text style={{ color: COLORS.t3, fontSize: 11 }}>{Math.ceil(qpvGap / 250)} orders of 250 PV</Text>
         </View>
       </Card>
 

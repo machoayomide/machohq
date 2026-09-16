@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
+import { askClaude } from '../utils/ai';
 import { Card, Badge, Btn, Input, TabBar, Ring } from '../components/UI';
 import { today } from '../utils/storage';
 
@@ -40,19 +41,15 @@ export default function FiverrScreen({ accounts, setAccounts, gigs, setGigs }) {
 
   const auditGig = async (gig) => {
     setAuditing(true); setAuditResult(null);
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6', max_tokens: 1000,
-          messages: [{ role: 'user', content: `You are a Fiverr gig optimization expert. Audit this gig and give 3-5 specific actionable recommendations. Be direct.\n\nGig: "${gig.title}"\nPrice: $${gig.price || 'not set'}\nStats: ${gig.impressions} impressions, ${gig.clicks} clicks, ${gig.orders} orders\n\nFor each recommendation: what to change, why, and the expected impact. Under 250 words.` }],
-          tools: [{ type: 'web_search_20250305', name: 'web_search' }]
-        })
-      });
-      const data = await res.json();
-      setAuditResult(data.content?.filter(b => b.type === 'text').map(b => b.text).join('\n') || 'Could not generate audit.');
-    } catch { setAuditResult('Connection error. Try again.'); }
+    const result = await askClaude(`You are a Fiverr gig optimization expert. Search the web for what is currently working on Fiverr in this niche, then audit this gig.
+
+Gig: "${gig.title}"
+Price: $${gig.price || 'not set'}
+Stats: ${gig.impressions} impressions, ${gig.clicks} clicks, ${gig.orders} orders
+
+Give 3-5 specific changes. For each: what to change, why, and where you found the evidence. Use only current information. Under 250 words.`, { maxTokens: 1000, webSearch: true });
+
+    setAuditResult(result.ok ? result.text : result.error);
     setAuditing(false);
   };
 

@@ -68,3 +68,52 @@ export function getTier(qpv) {
 
 // Product reorder cycles in days
 export const REORDER_DAYS = 30;
+
+// ─── Currencies ───
+// Rates are to Naira. User can edit these in Settings as the market moves.
+export const CURRENCIES = [
+  { code: 'USD', symbol: '$',  name: 'US Dollar',      defaultRate: 1500 },
+  { code: 'NGN', symbol: '₦',  name: 'Naira',          defaultRate: 1 },
+  { code: 'GBP', symbol: '£',  name: 'British Pound',  defaultRate: 1900 },
+  { code: 'EUR', symbol: '€',  name: 'Euro',           defaultRate: 1630 },
+  { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar',defaultRate: 1100 },
+  { code: 'AUD', symbol: 'A$', name: 'Australian Dollar', defaultRate: 990 },
+  { code: 'AED', symbol: 'د.إ',name: 'UAE Dirham',     defaultRate: 408 },
+  { code: 'ZAR', symbol: 'R',  name: 'South African Rand', defaultRate: 82 },
+  { code: 'INR', symbol: '₹',  name: 'Indian Rupee',   defaultRate: 18 },
+];
+
+export function currencyByCode(code) {
+  return CURRENCIES.find(c => c.code === code) || CURRENCIES[0];
+}
+
+// Platform fee by platform
+export const PLATFORM_FEES = {
+  Fiverr: 0.20,
+  Upwork: 0.10,
+  Direct: 0,
+  Other: 0,
+};
+
+// ─── Downline earning readiness ───
+// PV requires money. Money requires a skill that sells. This is the real
+// chain, so we track where each downline actually is.
+export const EARNING_STAGES = [
+  { id: 'none',      label: 'No skill yet',      desc: 'Has not started learning anything sellable', color: '#ff6b6b' },
+  { id: 'learning',  label: 'Learning a skill',  desc: 'In training, not job-ready yet',             color: '#ffb347' },
+  { id: 'ready',     label: 'Skill ready',       desc: 'Can deliver work, no client yet',            color: '#4da6ff' },
+  { id: 'profile',   label: 'Profile live',      desc: 'Gigs or proposals are up and running',       color: '#7c5cfc' },
+  { id: 'earning',   label: 'Earning',           desc: 'Has made money online',                      color: '#00d4aa' },
+];
+
+export function earningStage(id) {
+  return EARNING_STAGES.find(s => s.id === id) || EARNING_STAGES[0];
+}
+
+// Skills the team can actually sell for fast income
+export const SELLABLE_SKILLS = [
+  'Shopify store setup', 'WordPress website', 'Graphic design', 'Video editing',
+  'Social media management', 'Copywriting', 'Data entry', 'Virtual assistant',
+  'Facebook ads', 'SEO', 'Canva design', 'Voice over', 'Transcription',
+  'Product listing', 'Lead generation', 'Mobile app', 'AI automation',
+];

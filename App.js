@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Text } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { COLORS } from './src/theme';
 import { getData, setData, today } from './src/utils/storage';
 import { DEFAULT_ACTIONS } from './src/data/constants';
@@ -15,43 +15,28 @@ import NeoLifeScreen from './src/screens/NeoLifeScreen';
 import PipelineScreen from './src/screens/PipelineScreen';
 import FocusScreen from './src/screens/FocusScreen';
 import FiverrScreen from './src/screens/FiverrScreen';
+import ResearchScreen from './src/screens/ResearchScreen';
 import GrowthScreen from './src/screens/GrowthScreen';
 import SpendingScreen from './src/screens/SpendingScreen';
 import ScoreScreen from './src/screens/ScoreScreen';
 import JournalScreen from './src/screens/JournalScreen';
 import WeeklyReviewScreen from './src/screens/WeeklyReviewScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import MoreScreen from './src/screens/MoreScreen';
 import AIScreen from './src/screens/AIScreen';
 
 const Tab = createBottomTabNavigator();
 
+// Five tabs only. Bigger icons, readable labels.
 const TabIcon = ({ icon, label, focused }) => (
-  <View style={{ alignItems: 'center', gap: 2 }}>
-    {focused && <View style={{ width: 16, height: 3, borderRadius: 2, backgroundColor: COLORS.primary, marginBottom: 2 }} />}
-    <Text style={{ fontSize: 16, color: focused ? COLORS.primary : COLORS.t3 }}>{icon}</Text>
-    <Text style={{ fontSize: 8, color: focused ? COLORS.primary : COLORS.t3, fontWeight: focused ? '600' : '400' }}>{label}</Text>
+  <View style={{ alignItems: 'center', width: 70 }}>
+    {focused && <View style={{ width: 22, height: 3, borderRadius: 2, backgroundColor: COLORS.primary, marginBottom: 4 }} />}
+    <Text style={{ fontSize: 22, color: focused ? COLORS.primary : COLORS.t3, marginBottom: 2 }}>{icon}</Text>
+    <Text style={{ fontSize: 11, color: focused ? COLORS.primary : COLORS.t3, fontWeight: focused ? '700' : '500' }}>
+      {label}
+    </Text>
   </View>
 );
-
-// Sub-navigation pill row shown at the top of tabs that have multiple views
-const SubNav = ({ items, active, onChange }) => {
-  const insets = useSafeAreaInsets();
-  return (
-  <View style={{ flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingTop: insets.top + 8, paddingBottom: 4, backgroundColor: COLORS.bg }}>
-    {items.map(it => (
-      <TouchableOpacity key={it.key} onPress={() => onChange(it.key)}
-        style={{
-          flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center',
-          backgroundColor: active === it.key ? COLORS.primary : COLORS.surface,
-        }}>
-        <Text style={{ color: active === it.key ? COLORS.bg : COLORS.t3, fontSize: 11, fontWeight: '600' }}>
-          {it.label}
-        </Text>
-      </TouchableOpacity>
-    ))}
-  </View>
-  );
-};
 
 export default function App() {
   const [locked, setLocked] = useState(true);
@@ -67,10 +52,8 @@ export default function App() {
   const [journal, setJournal] = useState([]);
   const [loaded, setLoaded] = useState(false);
 
-  // Sub-view state per tab
-  const [hqView, setHqView] = useState('home');       // home | brief | settings
-  const [moneyView, setMoneyView] = useState('earn'); // earn | spend
-  const [scoreView, setScoreView] = useState('score'); // score | journal | review
+  const [hqView, setHqView] = useState('home');
+  const [moreView, setMoreView] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -93,22 +76,56 @@ export default function App() {
     });
   }, []);
 
+  // Debounced saving. Writing ten AsyncStorage keys on every keystroke was
+  // what made the app feel sluggish — now it batches after 600ms of quiet.
+  const saveTimer = useRef(null);
   useEffect(() => {
     if (!loaded) return;
-    setData('appData', appData); setData('team', team);
-    setData('prospects', prospects); setData('da_' + today(), dailyActions);
-    setData('earnings', earnings); setData('spending', spending);
-    setData('books', books); setData('fiverrAccounts', accounts);
-    setData('fiverrGigs', gigs); setData('journal', journal);
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      setData('appData', appData);
+      setData('team', team);
+      setData('prospects', prospects);
+      setData('da_' + today(), dailyActions);
+      setData('earnings', earnings);
+      setData('spending', spending);
+      setData('books', books);
+      setData('fiverrAccounts', accounts);
+      setData('fiverrGigs', gigs);
+      setData('journal', journal);
+    }, 600);
+    return () => clearTimeout(saveTimer.current);
   }, [appData, team, prospects, dailyActions, earnings, spending, books, accounts, gigs, journal, loaded]);
 
-  const toggleAction = (id) => setDailyActions(prev => prev.map(a => a.id === id ? { ...a, done: !a.done } : a));
+  const toggleAction = useCallback((id) => {
+    setDailyActions(prev => prev.map(a => a.id === id ? { ...a, done: !a.done } : a));
+  }, []);
 
-  if (locked) return (<SafeAreaProvider><StatusBar style="light" /><LockScreen onUnlock={() => setLocked(false)} /></SafeAreaProvider>);
+  if (locked) {
+    return (<SafeAreaProvider><StatusBar style="light" /><LockScreen onUnlock={() => setLocked(false)} /></SafeAreaProvider>);
+  }
 
   const darkTheme = {
     dark: true,
     colors: { primary: COLORS.primary, background: COLORS.bg, card: COLORS.bg, text: COLORS.t1, border: COLORS.border, notification: COLORS.primary },
+  };
+
+  // Everything reachable from the More tab
+  const renderMore = () => {
+    const back = () => setMoreView(null);
+    switch (moreView) {
+      case 'focus':    return <FocusScreen />;
+      case 'fiverr':   return <FiverrScreen accounts={accounts} setAccounts={setAccounts} gigs={gigs} setGigs={setGigs} />;
+      case 'research': return <ResearchScreen />;
+      case 'money':    return <GrowthScreen earnings={earnings} setEarnings={setEarnings} books={books} setBooks={setBooks} />;
+      case 'books':    return <GrowthScreen earnings={earnings} setEarnings={setEarnings} books={books} setBooks={setBooks} />;
+      case 'spending': return <SpendingScreen spending={spending} setSpending={setSpending} earnings={earnings} />;
+      case 'score':    return <ScoreScreen dailyActions={dailyActions} data={appData} />;
+      case 'journal':  return <JournalScreen entries={journal} setEntries={setJournal} />;
+      case 'review':   return <WeeklyReviewScreen data={appData} team={team} prospects={prospects} earnings={earnings} dailyActions={dailyActions} books={books} />;
+      case 'settings': return <SettingsScreen team={team} prospects={prospects} earnings={earnings} spending={spending} books={books} accounts={accounts} gigs={gigs} journal={journal} data={appData} />;
+      default:         return <MoreScreen onSelect={setMoreView} />;
+    }
   };
 
   return (
@@ -116,38 +133,32 @@ export default function App() {
     <NavigationContainer theme={darkTheme}>
       <Tab.Navigator screenOptions={{
         headerShown: false,
-        tabBarStyle: { backgroundColor: COLORS.bg, borderTopColor: COLORS.border, borderTopWidth: 1, height: 60, paddingBottom: 8, paddingTop: 4 },
+        tabBarStyle: {
+          backgroundColor: COLORS.bg,
+          borderTopColor: COLORS.border,
+          borderTopWidth: 1,
+          height: 74,
+          paddingBottom: 12,
+          paddingTop: 8,
+        },
         tabBarShowLabel: false,
       }}>
 
-        {/* HQ: home | attack plan | settings */}
         <Tab.Screen name="HQ" options={{ tabBarIcon: ({ focused }) => <TabIcon icon="⌂" label="HQ" focused={focused} /> }}>
           {() => (
             <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-              <SubNav
-                items={[
-                  { key: 'home', label: 'Home' },
-                  { key: 'brief', label: 'Attack Plan' },
-                  { key: 'settings', label: 'Settings' },
-                ]}
-                active={hqView} onChange={setHqView} />
-              {hqView === 'home' && (
+              {hqView === 'home' ? (
                 <HomeScreen data={appData} dailyActions={dailyActions} toggleAction={toggleAction}
                   team={team} prospects={prospects} onOpenBrief={() => setHqView('brief')} />
-              )}
-              {hqView === 'brief' && (
-                <DailyBriefScreen team={team} prospects={prospects} data={appData} books={books} />
-              )}
-              {hqView === 'settings' && (
-                <SettingsScreen team={team} prospects={prospects} earnings={earnings}
-                  spending={spending} books={books} accounts={accounts} gigs={gigs}
-                  journal={journal} data={appData} />
+              ) : (
+                <DailyBriefScreen team={team} prospects={prospects} data={appData} books={books}
+                  onBack={() => setHqView('home')} />
               )}
             </View>
           )}
         </Tab.Screen>
 
-        <Tab.Screen name="NeoLife" options={{ tabBarIcon: ({ focused }) => <TabIcon icon="◈" label="NeoLife" focused={focused} /> }}>
+        <Tab.Screen name="Team" options={{ tabBarIcon: ({ focused }) => <TabIcon icon="◈" label="Team" focused={focused} /> }}>
           {() => <NeoLifeScreen team={team} setTeam={setTeam} data={appData} setData={setAppData} />}
         </Tab.Screen>
 
@@ -155,57 +166,25 @@ export default function App() {
           {() => <PipelineScreen prospects={prospects} setProspects={setProspects} />}
         </Tab.Screen>
 
-        <Tab.Screen name="Focus" options={{ tabBarIcon: ({ focused }) => <TabIcon icon="⏱" label="Focus" focused={focused} /> }}>
-          {() => <FocusScreen />}
-        </Tab.Screen>
-
-        <Tab.Screen name="Fiverr" options={{ tabBarIcon: ({ focused }) => <TabIcon icon="💼" label="Fiverr" focused={focused} /> }}>
-          {() => <FiverrScreen accounts={accounts} setAccounts={setAccounts} gigs={gigs} setGigs={setGigs} />}
-        </Tab.Screen>
-
-        {/* Money: earnings+books | spending */}
-        <Tab.Screen name="Money" options={{ tabBarIcon: ({ focused }) => <TabIcon icon="📈" label="Money" focused={focused} /> }}>
-          {() => (
-            <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-              <SubNav
-                items={[
-                  { key: 'earn', label: 'Earn & Read' },
-                  { key: 'spend', label: 'Spending' },
-                ]}
-                active={moneyView} onChange={setMoneyView} />
-              {moneyView === 'earn' && (
-                <GrowthScreen earnings={earnings} setEarnings={setEarnings} books={books} setBooks={setBooks} />
-              )}
-              {moneyView === 'spend' && (
-                <SpendingScreen spending={spending} setSpending={setSpending} earnings={earnings} />
-              )}
-            </View>
-          )}
-        </Tab.Screen>
-
-        {/* Score: score | journal | weekly review */}
-        <Tab.Screen name="Score" options={{ tabBarIcon: ({ focused }) => <TabIcon icon="★" label="Score" focused={focused} /> }}>
-          {() => (
-            <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-              <SubNav
-                items={[
-                  { key: 'score', label: 'Score' },
-                  { key: 'journal', label: 'Journal' },
-                  { key: 'review', label: 'Weekly' },
-                ]}
-                active={scoreView} onChange={setScoreView} />
-              {scoreView === 'score' && <ScoreScreen dailyActions={dailyActions} data={appData} />}
-              {scoreView === 'journal' && <JournalScreen entries={journal} setEntries={setJournal} />}
-              {scoreView === 'review' && (
-                <WeeklyReviewScreen data={appData} team={team} prospects={prospects}
-                  earnings={earnings} dailyActions={dailyActions} books={books} />
-              )}
-            </View>
-          )}
-        </Tab.Screen>
-
         <Tab.Screen name="AI" options={{ tabBarIcon: ({ focused }) => <TabIcon icon="🧠" label="AI" focused={focused} /> }}>
           {() => <AIScreen />}
+        </Tab.Screen>
+
+        <Tab.Screen name="More"
+          options={{ tabBarIcon: ({ focused }) => <TabIcon icon="☰" label="More" focused={focused} /> }}
+          listeners={{ tabPress: () => setMoreView(null) }}>
+          {() => (
+            <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+              {moreView && (
+                <View style={{ paddingHorizontal: 16, paddingTop: 48, backgroundColor: COLORS.bg }}>
+                  <Text onPress={() => setMoreView(null)} style={{ color: COLORS.primary, fontSize: 14, paddingVertical: 6 }}>
+                    ← All features
+                  </Text>
+                </View>
+              )}
+              {renderMore()}
+            </View>
+          )}
         </Tab.Screen>
 
       </Tab.Navigator>

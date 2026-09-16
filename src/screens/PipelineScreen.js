@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking, Share, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
+import { askClaude } from '../utils/ai';
 import { Card, Badge, Btn, Input, TabBar } from '../components/UI';
 import { daysBetween, today } from '../utils/storage';
 import { PIPELINE_STAGES } from '../data/constants';
@@ -80,16 +81,7 @@ export default function PipelineScreen({ prospects, setProspects }) {
       p.objection ? `objection ${p.objection} prospecting` : 'prospecting follow up approach'
     );
 
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 400,
-          messages: [{
-            role: 'user',
-            content: `Write a WhatsApp message I can send right now. I'm Macho, a NeoLife distributor in Nigeria building toward Director.
+    const result = await askClaude(`Write a WhatsApp message I can send right now. I'm Macho, a NeoLife distributor in Nigeria building toward Director.
 
 PROSPECT: ${p.name}
 STAGE: ${stageName}
@@ -106,15 +98,9 @@ Rules:
 - One emoji maximum, or none
 - Do not pitch products in early stages
 - End with something that makes replying easy
-- Output only the message, nothing else`
-          }]
-        })
-      });
-      const json = await res.json();
-      setDraft(json.content?.filter(b => b.type === 'text').map(b => b.text).join('').trim() || 'Could not draft.');
-    } catch {
-      setDraft('Connection error. Check your network.');
-    }
+- Output only the message, nothing else`, { maxTokens: 400 });
+
+    setDraft(result.ok ? result.text : result.error);
     setDrafting(false);
   };
 

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, Keyboa
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import { buildKnowledgeContext } from '../utils/knowledge';
+import { askClaude } from '../utils/ai';
 
 export default function AIScreen() {
   const insets = useSafeAreaInsets();
@@ -22,14 +23,8 @@ export default function AIScreen() {
   useEffect(() => { scrollRef.current?.scrollToEnd({ animated: true }); }, [messages, loading]);
 
   const callAI = async (prompt) => {
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] })
-      });
-      const data = await res.json();
-      return data.content?.filter(b => b.type === 'text').map(b => b.text).join('\n') || 'Try again.';
-    } catch { return 'Connection error. Check your network.'; }
+    const res = await askClaude(prompt, { maxTokens: 1000 });
+    return res.ok ? res.text : res.error;
   };
 
   const sendChat = async () => {
