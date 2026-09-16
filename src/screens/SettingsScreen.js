@@ -150,10 +150,16 @@ export default function SettingsScreen({ team, prospects, earnings, spending, bo
       {/* AI Provider */}
       <Text style={s.sectionLabel}>AI PROVIDER</Text>
       <Card>
-        <Text style={{ color: COLORS.t2, fontSize: 12, lineHeight: 18, marginBottom: 12 }}>
+        <Text style={{ color: COLORS.t2, fontSize: 12, lineHeight: 18, marginBottom: 10 }}>
           Pick who powers the AI. Gemini is free and can search the web, which is what Research
-          needs. A Claude Pro subscription does not include API access — that is billed separately.
+          needs.
         </Text>
+        <View style={{ padding: 10, backgroundColor: COLORS.bg, borderRadius: 9, borderLeftWidth: 2, borderLeftColor: COLORS.warn, marginBottom: 12 }}>
+          <Text style={{ color: COLORS.t2, fontSize: 11, lineHeight: 17 }}>
+            A ChatGPT Plus or Claude Pro subscription does not include API access. Those cover the
+            website only. API keys are billed separately by usage, from the developer platform.
+          </Text>
+        </View>
 
         {Object.values(PROVIDERS).map(p => {
           const active = provider === p.id;

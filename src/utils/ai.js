@@ -29,6 +29,17 @@ export const PROVIDERS = {
     webSearch: false,
     notes: 'Fastest replies, but cannot search the web. Research will be weaker.',
   },
+  openai: {
+    id: 'openai',
+    name: 'ChatGPT (OpenAI)',
+    badge: 'Cheap',
+    model: 'gpt-4o-mini',
+    keyPrefix: 'sk-',
+    keyUrl: 'https://platform.openai.com/api-keys',
+    cost: 'Roughly $1-2 a month at normal use',
+    webSearch: false,
+    notes: 'A ChatGPT Plus subscription does NOT include this — API credit is separate and billed by usage.',
+  },
   openrouter: {
     id: 'openrouter',
     name: 'OpenRouter',
@@ -115,8 +126,8 @@ async function callOpenAICompatible(url, key, model, prompt, maxTokens, extraHea
     }),
   });
 
-  if (res.status === 401) return { ok: false, error: 'Key rejected. Check it in Settings.' };
-  if (res.status === 429) return { ok: false, error: 'Rate limited. Wait a moment and try again.' };
+  if (res.status === 401) return { ok: false, error: 'Key rejected. Note that a Plus or Pro subscription is not API credit — the key must come from the developer platform.' };
+  if (res.status === 429) return { ok: false, error: 'Rate limited, or your account has no credit. Check your billing on the provider site.' };
   if (!res.ok) return { ok: false, error: `Server returned ${res.status}.` };
 
   const data = await res.json();
@@ -182,6 +193,8 @@ export async function askClaude(prompt, { maxTokens = 800, webSearch = false } =
       result = await callGemini(key, prompt, maxTokens, useSearch);
     } else if (providerId === 'groq') {
       result = await callOpenAICompatible('https://api.groq.com/openai/v1/chat/completions', key, provider.model, prompt, maxTokens);
+    } else if (providerId === 'openai') {
+      result = await callOpenAICompatible('https://api.openai.com/v1/chat/completions', key, provider.model, prompt, maxTokens);
     } else if (providerId === 'openrouter') {
       result = await callOpenAICompatible('https://openrouter.ai/api/v1/chat/completions', key, provider.model, prompt, maxTokens, {
         'HTTP-Referer': 'https://machohq.app', 'X-Title': 'MachoHQ',
@@ -214,6 +227,7 @@ export async function testKey(providerId, key) {
     let r;
     if (providerId === 'gemini') r = await callGemini(key, 'Reply with the single word: working', 20, false);
     else if (providerId === 'groq') r = await callOpenAICompatible('https://api.groq.com/openai/v1/chat/completions', key, provider.model, 'Reply with the single word: working', 20);
+    else if (providerId === 'openai') r = await callOpenAICompatible('https://api.openai.com/v1/chat/completions', key, provider.model, 'Reply with the single word: working', 20);
     else if (providerId === 'openrouter') r = await callOpenAICompatible('https://openrouter.ai/api/v1/chat/completions', key, provider.model, 'Reply with the single word: working', 20, { 'HTTP-Referer': 'https://machohq.app', 'X-Title': 'MachoHQ' });
     else r = await callClaude(key, 'Reply with the single word: working', 20, false);
     return r;
