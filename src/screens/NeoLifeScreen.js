@@ -4,7 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import { Card, Badge, ProgressBar, Ring, Btn, Input, TabBar } from '../components/UI';
 import { daysBetween, today } from '../utils/storage';
-import { CHALLENGE, NEWBIE_REQS, SVB_TIERS, getTier, REORDER_DAYS } from '../data/constants';
+import { CHALLENGE, NEWBIE_REQS, SVB_TIERS, getTier, REORDER_DAYS, EARNING_STAGES, earningStage, SELLABLE_SKILLS } from '../data/constants';
+import { askClaude } from '../utils/ai';
 import AddDownlineScreen from './AddDownlineScreen';
 
 export default function NeoLifeScreen({ team, setTeam, data, setData }) {
@@ -16,6 +17,8 @@ export default function NeoLifeScreen({ team, setTeam, data, setData }) {
   const [memberPV, setMemberPV] = useState('');
   const [editingPV, setEditingPV] = useState(false);
   const [correctPV, setCorrectPV] = useState('');
+  const [coachAdvice, setCoachAdvice] = useState({});
+  const [coaching, setCoaching] = useState(null);
 
   const qpv = data?.qpv || 0;
   const daysLeft = daysBetween(today(), CHALLENGE.end);
@@ -127,6 +130,49 @@ export default function NeoLifeScreen({ team, setTeam, data, setData }) {
             )}
           </View>
         </Card>
+
+        {/* Income readiness */}
+        {(() => {
+          const stage = earningStage(m.earningStage || 'none');
+          return (
+            <Card style={{ borderLeftWidth: 3, borderLeftColor: stage.color }}>
+              <Text style={{ color: COLORS.t3, fontSize: 10, fontWeight: '600', letterSpacing: 1 }}>
+                CAN THEY AFFORD PRODUCT?
+              </Text>
+              <Text style={{ color: stage.color, fontSize: 14, fontWeight: '700', marginTop: 4 }}>
+                {stage.label}
+              </Text>
+              <Text style={{ color: COLORS.t2, fontSize: 11, marginTop: 2 }}>{stage.desc}</Text>
+              <View style={{ flexDirection: 'row', gap: 4, marginTop: 10 }}>
+                {EARNING_STAGES.map(st => (
+                  <TouchableOpacity key={st.id}
+                    onPress={() => updateMember(m.id, { earningStage: st.id })}
+                    style={{
+                      flex: 1, height: 30, borderRadius: 7, alignItems: 'center', justifyContent: 'center',
+                      backgroundColor: (m.earningStage || 'none') === st.id ? st.color + '33' : COLORS.bg,
+                      borderWidth: 1,
+                      borderColor: (m.earningStage || 'none') === st.id ? st.color : COLORS.border,
+                    }}>
+                    <Text style={{ fontSize: 9, color: (m.earningStage || 'none') === st.id ? st.color : COLORS.t3 }}>
+                      {st.label.split(' ')[0]}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {(m.earningStage || 'none') === 'none' && (
+                <Text style={{ color: COLORS.warn, fontSize: 11, marginTop: 10, lineHeight: 17 }}>
+                  Do not push PV here. Get them a skill first — open the Income tab for a
+                  researched plan.
+                </Text>
+              )}
+              {(m.skills || []).length > 0 && (
+                <Text style={{ color: COLORS.t3, fontSize: 10, marginTop: 8 }}>
+                  Skills: {(m.skills || []).join(', ')}
+                </Text>
+              )}
+            </Card>
+          );
+        })()}
 
         {dueReorder && (
           <Card style={{ borderLeftWidth: 3, borderLeftColor: COLORS.warn }}>
@@ -268,7 +314,7 @@ export default function NeoLifeScreen({ team, setTeam, data, setData }) {
       <Text style={{ color: COLORS.t3, fontSize: 11, marginBottom: 14 }}>
         {tier.rank} · {tier.svb}% SVB tier
       </Text>
-      <TabBar tabs={['Status', 'Team', 'PV']} active={tab} onChange={setTab} />
+      <TabBar tabs={['Status', 'Team', 'Income', 'PV']} active={tab} onChange={setTab} />
 
       {/* ─── STATUS TAB ─── */}
       {tab === 0 && (
@@ -470,8 +516,129 @@ export default function NeoLifeScreen({ team, setTeam, data, setData }) {
         </View>
       )}
 
-      {/* ─── PV TAB ─── */}
+      {/* ─── INCOME TAB ─── */}
       {tab === 2 && (
+        <View>
+          <Card style={{ borderLeftWidth: 3, borderLeftColor: COLORS.warn }}>
+            <Text style={{ color: COLORS.warn, fontSize: 10, fontWeight: '600', letterSpacing: 1 }}>
+              THE REAL ORDER
+            </Text>
+            <Text style={{ color: COLORS.t2, fontSize: 12, marginTop: 6, lineHeight: 18 }}>
+              Skill first, then income, then PV. Chasing PV from someone with no money is
+              wasted effort — and it kills the relationship. Fix their income and PV follows.
+            </Text>
+          </Card>
+
+          {/* Funnel counts */}
+          <Card>
+            <Text style={s.sectionTitle}>Where your team stands</Text>
+            {EARNING_STAGES.map(st => {
+              const members = (team || []).filter(m => (m.earningStage || 'none') === st.id);
+              return (
+                <View key={st.id} style={s.earnRow}>
+                  <View style={[s.earnDot, { backgroundColor: st.color }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: COLORS.t1, fontSize: 12 }}>{st.label}</Text>
+                    <Text style={{ color: COLORS.t3, fontSize: 9 }}>{st.desc}</Text>
+                  </View>
+                  <Badge text={String(members.length)} color={st.color} />
+                </View>
+              );
+            })}
+            <View style={{ marginTop: 10, padding: 10, backgroundColor: COLORS.bg, borderRadius: 8 }}>
+              <Text style={{ color: COLORS.t2, fontSize: 11 }}>
+                {(team || []).filter(m => m.earningStage === 'earning').length} of {(team || []).length} can
+                actually afford product right now.
+              </Text>
+            </View>
+          </Card>
+
+          {/* Per-member income status */}
+          {(team || []).length === 0 && (
+            <Card style={{ alignItems: 'center', padding: 24 }}>
+              <Text style={{ color: COLORS.t3, fontSize: 12 }}>Add team members to track their income path</Text>
+            </Card>
+          )}
+
+          {(team || []).map(m => {
+            const stage = earningStage(m.earningStage || 'none');
+            const advice = coachAdvice[m.id];
+            return (
+              <Card key={m.id} style={{ padding: 13 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <View style={[s.earnDot, { backgroundColor: stage.color, width: 10, height: 10, borderRadius: 5 }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: COLORS.t1, fontSize: 13, fontWeight: '600' }}>{m.name}</Text>
+                    <Text style={{ color: stage.color, fontSize: 10 }}>{stage.label}</Text>
+                  </View>
+                  <Text style={{ color: m.pv > 0 ? COLORS.primary : COLORS.t3, fontSize: 11 }}>{m.pv} PV</Text>
+                </View>
+
+                {/* Stage selector */}
+                <View style={{ flexDirection: 'row', gap: 4, marginBottom: 8 }}>
+                  {EARNING_STAGES.map(st => (
+                    <TouchableOpacity key={st.id}
+                      onPress={() => updateMember(m.id, { earningStage: st.id })}
+                      style={{
+                        flex: 1, height: 26, borderRadius: 6, alignItems: 'center', justifyContent: 'center',
+                        backgroundColor: (m.earningStage || 'none') === st.id ? st.color + '33' : COLORS.bg,
+                        borderWidth: 1,
+                        borderColor: (m.earningStage || 'none') === st.id ? st.color : COLORS.border,
+                      }}>
+                      <Text style={{ fontSize: 9, color: (m.earningStage || 'none') === st.id ? st.color : COLORS.t3 }}>
+                        {st.label.split(' ')[0]}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {(m.skills || []).length > 0 && (
+                  <Text style={{ color: COLORS.t3, fontSize: 10, marginBottom: 8 }}>
+                    Skills: {(m.skills || []).join(', ')}
+                  </Text>
+                )}
+
+                <Btn full outline onPress={async () => {
+                  setCoaching(m.id);
+                  const res = await askClaude(
+                    `A member of my NeoLife team in Nigeria needs to start earning online before they can afford product.
+
+NAME: ${m.name}
+CURRENT INCOME STAGE: ${stage.label} — ${stage.desc}
+SKILLS THEY HAVE: ${(m.skills || []).length ? (m.skills || []).join(', ') : 'none yet'}
+THEIR NEOLIFE STATUS: ${m.status}
+
+Search the web for what is actually selling right now on Fiverr and Upwork that someone at this exact stage could realistically start.
+
+Give me a concrete plan:
+1. The single next step they should take this week
+2. Which specific service to go after and why it fits their stage
+3. Realistic timeline to first payment
+4. What they need (phone only? laptop? which free tools?)
+5. Exactly what I should say to them to get them moving
+
+Be realistic about timelines. If they have no skill, do not pretend they will earn in two weeks. Under 250 words. Cite anything current you found.`,
+                    { maxTokens: 1100, webSearch: true }
+                  );
+                  setCoachAdvice(prev => ({ ...prev, [m.id]: res.ok ? res.text : res.error }));
+                  setCoaching(null);
+                }} style={{ height: 34 }}>
+                  {coaching === m.id ? 'Researching...' : advice ? 'Refresh plan' : 'Get their income plan'}
+                </Btn>
+
+                {advice && (
+                  <View style={{ marginTop: 8, padding: 11, backgroundColor: COLORS.bg, borderRadius: 9, borderLeftWidth: 2, borderLeftColor: stage.color }}>
+                    <Text style={{ color: COLORS.t2, fontSize: 11, lineHeight: 18 }}>{advice}</Text>
+                  </View>
+                )}
+              </Card>
+            );
+          })}
+        </View>
+      )}
+
+      {/* ─── PV TAB ─── */}
+      {tab === 3 && (
         <View>
           <View style={{ alignItems: 'center', marginBottom: 16 }}>
             <Ring value={qpv} max={750} size={160}>
@@ -552,6 +719,8 @@ const s = StyleSheet.create({
   legEmpty: { width: 42, height: 42, borderRadius: 14, borderWidth: 2, borderColor: COLORS.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
   youNode: { width: 46, height: 46, borderRadius: 15, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   treeLine: { borderLeftWidth: 2, borderLeftColor: COLORS.border, marginLeft: 22, paddingLeft: 16, marginTop: 4 },
+  earnRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  earnDot: { width: 8, height: 8, borderRadius: 4 },
   pvRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   pvDot: { width: 8, height: 8, borderRadius: 4 },
   reqRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: COLORS.border },
