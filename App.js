@@ -14,6 +14,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import DailyBriefScreen from './src/screens/DailyBriefScreen';
 import NeoLifeScreen from './src/screens/NeoLifeScreen';
 import PipelineScreen from './src/screens/PipelineScreen';
+import TasksScreen from './src/screens/TasksScreen';
 import FocusScreen from './src/screens/FocusScreen';
 import FiverrScreen from './src/screens/FiverrScreen';
 import ResearchScreen from './src/screens/ResearchScreen';
@@ -130,6 +131,7 @@ export default function App() {
   const renderMore = () => {
     const back = () => setMoreView(null);
     switch (moreView) {
+      case 'tasks':    return <TasksScreen team={team} prospects={prospects} />;
       case 'focus':    return <FocusScreen />;
       case 'fiverr':   return <FiverrScreen accounts={accounts} setAccounts={setAccounts} gigs={gigs} setGigs={setGigs} />;
       case 'research': return <ResearchScreen />;

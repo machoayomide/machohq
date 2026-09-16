@@ -5,6 +5,7 @@ import { COLORS } from '../theme';
 import { Card } from '../components/UI';
 
 const ITEMS = [
+  { key: 'tasks',    icon: '✓',  label: 'Tasks',          sub: 'Your own to-do list, by area' },
   { key: 'focus',    icon: '⏱',  label: 'Focus Engine',   sub: 'Timed work blocks with check-in' },
   { key: 'fiverr',   icon: '💼', label: 'Fiverr Hub',     sub: 'Accounts, gigs, AI gig audit' },
   { key: 'research', icon: '🔍', label: 'Research',       sub: 'Live trends, keywords, job posts' },
