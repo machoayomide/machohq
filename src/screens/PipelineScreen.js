@@ -7,6 +7,7 @@ import { Card, Badge, Btn, Input, TabBar } from '../components/UI';
 import { daysBetween, today } from '../utils/storage';
 import { PIPELINE_STAGES } from '../data/constants';
 import { buildKnowledgeContext } from '../utils/knowledge';
+import { buildUserContext } from '../utils/userLibrary';
 
 const SOURCES = ['Cold Outreach', 'Referral', 'Funnel', 'Social Media', 'Office Visit', 'Church', 'School', 'Market'];
 
@@ -77,9 +78,9 @@ export default function PipelineScreen({ prospects, setProspects }) {
     const days = daysBetween(p.lastContact, today());
     const notesText = (p.notes || []).slice(-3).map(n => n.text).join('; ');
 
-    const knowledge = buildKnowledgeContext(
-      p.objection ? `objection ${p.objection} prospecting` : 'prospecting follow up approach'
-    );
+    const topic = p.objection ? `objection ${p.objection} prospecting` : 'prospecting follow up approach';
+    let knowledge = buildKnowledgeContext(topic);
+    try { knowledge += await buildUserContext(topic); } catch {}
 
     const result = await askClaude(`Write a WhatsApp message I can send right now. I'm Macho, a NeoLife distributor in Nigeria building toward Director.
 

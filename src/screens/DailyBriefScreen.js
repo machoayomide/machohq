@@ -7,6 +7,7 @@ import { Card, Badge, Btn, ProgressBar } from '../components/UI';
 import { today, daysBetween } from '../utils/storage';
 import { CHALLENGE, PIPELINE_STAGES, earningStage } from '../data/constants';
 import { buildKnowledgeContext } from '../utils/knowledge';
+import { buildUserContext } from '../utils/userLibrary';
 
 export default function DailyBriefScreen({ team, prospects, data, books, onBack }) {
   const insets = useSafeAreaInsets();
@@ -52,9 +53,9 @@ export default function DailyBriefScreen({ team, prospects, data, books, onBack 
       situation = `${person.name} is a prospect at the "${stage.name}" stage of my pipeline. Last contacted ${daysBetween(person.lastContact, today())} days ago. I need to move them to the next stage.`;
     }
 
-    const knowledge = buildKnowledgeContext(
-      type === 'prospect' ? 'prospecting follow up objection' : 'team coaching motivation retention'
-    );
+    const topic = type === 'prospect' ? 'prospecting follow up objection' : 'team coaching motivation retention';
+    let knowledge = buildKnowledgeContext(topic);
+    try { knowledge += await buildUserContext(topic); } catch {}
 
     const result = await askClaude(`Write a short WhatsApp message I can send right now. I'm Macho, a NeoLife Senior Manager in Nigeria working toward Director.
 

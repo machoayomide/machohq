@@ -19,6 +19,7 @@ import FiverrScreen from './src/screens/FiverrScreen';
 import ResearchScreen from './src/screens/ResearchScreen';
 import SkillsScreen from './src/screens/SkillsScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
+import LibraryScreen from './src/screens/LibraryScreen';
 import GrowthScreen from './src/screens/GrowthScreen';
 import SpendingScreen from './src/screens/SpendingScreen';
 import ScoreScreen from './src/screens/ScoreScreen';
@@ -134,6 +135,7 @@ export default function App() {
       case 'research': return <ResearchScreen />;
       case 'skills':   return <SkillsScreen accounts={accounts} gigs={gigs} earnings={earnings} />;
       case 'leaderboard': return <LeaderboardScreen team={team} />;
+      case 'library':  return <LibraryScreen />;
       case 'money':    return <GrowthScreen earnings={earnings} setEarnings={setEarnings} books={books} setBooks={setBooks} />;
       case 'books':    return <GrowthScreen earnings={earnings} setEarnings={setEarnings} books={books} setBooks={setBooks} />;
       case 'spending': return <SpendingScreen spending={spending} setSpending={setSpending} earnings={earnings} />;
