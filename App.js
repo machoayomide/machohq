@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { COLORS } from './src/theme';
 import { getData, setData, today } from './src/utils/storage';
 import { DEFAULT_ACTIONS } from './src/data/constants';
+import { getCloudConfig, backupNow, lastBackupTime } from './src/utils/cloud';
 
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import LockScreen from './src/screens/LockScreen';
@@ -15,6 +16,8 @@ import DailyBriefScreen from './src/screens/DailyBriefScreen';
 import NeoLifeScreen from './src/screens/NeoLifeScreen';
 import PipelineScreen from './src/screens/PipelineScreen';
 import TasksScreen from './src/screens/TasksScreen';
+import CalendarScreen from './src/screens/CalendarScreen';
+import CloudScreen from './src/screens/CloudScreen';
 import FocusScreen from './src/screens/FocusScreen';
 import FiverrScreen from './src/screens/FiverrScreen';
 import ResearchScreen from './src/screens/ResearchScreen';
@@ -104,6 +107,18 @@ export default function App() {
     return () => clearTimeout(saveTimer.current);
   }, [appData, team, prospects, dailyActions, earnings, spending, books, accounts, gigs, journal, loaded]);
 
+  // Automatic cloud backup, at most once an hour
+  useEffect(() => {
+    if (!loaded) return;
+    (async () => {
+      const cfg = await getCloudConfig();
+      if (!cfg.url || !cfg.anonKey || cfg.autoSync === false) return;
+      const last = await lastBackupTime();
+      if (last && Date.now() - new Date(last) < 3600000) return;
+      await backupNow();
+    })();
+  }, [loaded]);
+
   const toggleAction = useCallback((id) => {
     setDailyActions(prev => prev.map(a => a.id === id ? { ...a, done: !a.done } : a));
   }, []);
@@ -132,6 +147,8 @@ export default function App() {
     const back = () => setMoreView(null);
     switch (moreView) {
       case 'tasks':    return <TasksScreen team={team} prospects={prospects} />;
+      case 'calendar': return <CalendarScreen team={team} prospects={prospects} books={books} />;
+      case 'cloud':    return <CloudScreen />;
       case 'focus':    return <FocusScreen />;
       case 'fiverr':   return <FiverrScreen accounts={accounts} setAccounts={setAccounts} gigs={gigs} setGigs={setGigs} />;
       case 'research': return <ResearchScreen />;

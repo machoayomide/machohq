@@ -6,6 +6,7 @@ import { Card } from '../components/UI';
 
 const ITEMS = [
   { key: 'tasks',    icon: '✓',  label: 'Tasks',          sub: 'Your own to-do list, by area' },
+  { key: 'calendar', icon: '📅', label: 'Calendar',       sub: 'Tasks, follow-ups, PV deadlines' },
   { key: 'focus',    icon: '⏱',  label: 'Focus Engine',   sub: 'Timed work blocks with check-in' },
   { key: 'fiverr',   icon: '💼', label: 'Fiverr Hub',     sub: 'Accounts, gigs, AI gig audit' },
   { key: 'research', icon: '🔍', label: 'Research',       sub: 'Live trends, keywords, job posts' },
@@ -18,7 +19,8 @@ const ITEMS = [
   { key: 'score',    icon: '★',  label: 'Macho Score',    sub: 'Daily discipline score' },
   { key: 'journal',  icon: '📓', label: 'Journal',        sub: 'No excuses reflection' },
   { key: 'review',   icon: '📊', label: 'Weekly Review',  sub: 'Shareable progress report' },
-  { key: 'settings', icon: '⚙',  label: 'Settings',       sub: 'PIN, API key, notifications, backup' },
+  { key: 'cloud',    icon: '☁',  label: 'Cloud Backup',   sub: 'Never lose your data' },
+  { key: 'settings', icon: '⚙',  label: 'Settings',       sub: 'PIN, AI provider, notifications' },
 ];
 
 export default function MoreScreen({ onSelect }) {
