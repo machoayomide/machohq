@@ -7,6 +7,7 @@ import { Card } from '../components/UI';
 const ITEMS = [
   { key: 'tasks',    icon: '✓',  label: 'Tasks',          sub: 'Your own to-do list, by area' },
   { key: 'calendar', icon: '📅', label: 'Calendar',       sub: 'Tasks, follow-ups, PV deadlines' },
+  { key: 'outreach', icon: '📲', label: 'Virtual Prospecting', sub: 'Daily WhatsApp outreach automation' },
   { key: 'focus',    icon: '⏱',  label: 'Focus Engine',   sub: 'Timed work blocks with check-in' },
   { key: 'fiverr',   icon: '💼', label: 'Fiverr Hub',     sub: 'Accounts, gigs, AI gig audit' },
   { key: 'research', icon: '🔍', label: 'Research',       sub: 'Live trends, keywords, job posts' },

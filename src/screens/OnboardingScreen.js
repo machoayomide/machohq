@@ -1,255 +1,253 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Linking } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Animated, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
-import { Card, Badge, Btn, Input } from '../components/UI';
-import { setData, today } from '../utils/storage';
-import { clearKeyCache } from '../utils/ai';
-import { SVB_TIERS } from '../data/constants';
+import { setData } from '../utils/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const { width } = Dimensions.get('window');
+
+const NEOLIFE_RANKS = [
+  'Not in NeoLife yet',
+  'Full Distributor',
+  'Manager',
+  'Senior Manager',
+  'Executive Manager',
+  'Director',
+  '1RD', '2RD', '3RD', '4RD', '5RD',
+];
 
 export default function OnboardingScreen({ onDone }) {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  // Profile fields
+  const [name, setName] = useState('');
+  const [nickname, setNickname] = useState('');
+  const [phone, setPhone] = useState('');
+  const [rank, setRank] = useState('');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
-  const [name, setName] = useState('');
-  const [rank, setRank] = useState('Senior Manager');
-  const [startQpv, setStartQpv] = useState('');
-  const [apiKey, setApiKey] = useState('');
 
-  const TOTAL = 5;
+  const animateStep = (next) => {
+    Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
+      setStep(next);
+      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    });
+  };
 
   const canNext = () => {
-    if (step === 1) return true;
-    if (step === 2) return pin.length === 4 && pin === confirmPin;
-    if (step === 3) return name.trim().length > 0;
-    if (step === 4) return true;
+    if (step === 0) return true; // welcome
+    if (step === 1) return name.trim().length >= 2;
+    if (step === 2) return nickname.trim().length >= 1;
+    if (step === 3) return rank.length > 0;
+    if (step === 4) return pin.length === 4 && pin === confirmPin;
     return true;
   };
 
   const finish = async () => {
+    // Clear all old data first — fresh start
+    const allKeys = await AsyncStorage.getAllKeys();
+    if (allKeys.length > 0) await AsyncStorage.multiRemove(allKeys);
+
+    // Save profile
+    await setData('profile', {
+      name: name.trim(),
+      nickname: nickname.trim(),
+      phone: phone.trim(),
+      rank,
+      createdAt: new Date().toISOString(),
+    });
     await setData('pin', pin);
-    await setData('profile', { name: name.trim(), rank, joined: today() });
-    await setData('appData', { qpv: parseFloat(startQpv) || 0, streak: 0 });
-    if (apiKey.trim().length > 10) {
-      await setData('aiProvider', 'gemini');
-      await setData('aiKey_gemini', apiKey.trim());
-      clearKeyCache();
-    }
     await setData('onboarded', true);
+    await setData('appData', { qpv: 0, streak: 0, dayNumber: 1, startDate: new Date().toISOString() });
     onDone();
   };
 
+  const renderStep = () => {
+    if (step === 0) return (
+      <View style={st.stepContent}>
+        <Text style={st.bigEmoji}>⚡</Text>
+        <Text style={st.heroTitle}>MachoHQ</Text>
+        <Text style={st.heroSub}>Your Personal Performance OS</Text>
+        <View style={st.spacer} />
+        <Text style={st.desc}>
+          This is your daily operating system. Everything you need to build your NeoLife business, run your freelancing, and stay disciplined — in one place.
+        </Text>
+        <Text style={[st.desc, { marginTop: 12, color: COLORS.accent }]}>
+          All previous data will be cleared for a fresh start.
+        </Text>
+      </View>
+    );
+
+    if (step === 1) return (
+      <View style={st.stepContent}>
+        <Text style={st.stepLabel}>STEP 1 OF 4</Text>
+        <Text style={st.stepTitle}>What's your full name?</Text>
+        <Text style={st.desc}>This is how you appear in your app and team reports.</Text>
+        <TextInput
+          value={name}
+          onChangeText={setName}
+          placeholder="e.g. Ayomide Olalekan"
+          placeholderTextColor={COLORS.t3}
+          style={st.input}
+          autoFocus
+        />
+      </View>
+    );
+
+    if (step === 2) return (
+      <View style={st.stepContent}>
+        <Text style={st.stepLabel}>STEP 2 OF 4</Text>
+        <Text style={st.stepTitle}>What should we call you?</Text>
+        <Text style={st.desc}>Your nickname — used in daily greetings and nudges.</Text>
+        <TextInput
+          value={nickname}
+          onChangeText={setNickname}
+          placeholder="e.g. Macho"
+          placeholderTextColor={COLORS.t3}
+          style={st.input}
+          autoFocus
+        />
+        <View style={{ marginTop: 16 }}>
+          <Text style={[st.desc, { marginBottom: 8 }]}>Phone number (for WhatsApp integration)</Text>
+          <TextInput
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="e.g. 08012345678"
+            placeholderTextColor={COLORS.t3}
+            keyboardType="phone-pad"
+            style={st.input}
+          />
+        </View>
+      </View>
+    );
+
+    if (step === 3) return (
+      <View style={st.stepContent}>
+        <Text style={st.stepLabel}>STEP 3 OF 4</Text>
+        <Text style={st.stepTitle}>Your NeoLife rank</Text>
+        <Text style={st.desc}>Where you currently stand. This sets your starting targets.</Text>
+        <ScrollView style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false}>
+          {NEOLIFE_RANKS.map(r => (
+            <TouchableOpacity
+              key={r}
+              onPress={() => setRank(r)}
+              style={[st.rankOption, rank === r && st.rankSelected]}
+            >
+              <Text style={[st.rankText, rank === r && { color: COLORS.primary, fontWeight: '700' }]}>{r}</Text>
+              {rank === r && <Text style={{ color: COLORS.primary, fontSize: 16 }}>✓</Text>}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+
+    if (step === 4) return (
+      <View style={st.stepContent}>
+        <Text style={st.stepLabel}>STEP 4 OF 4</Text>
+        <Text style={st.stepTitle}>Set your lock PIN</Text>
+        <Text style={st.desc}>4 digits. Keeps your data private.</Text>
+        <TextInput
+          value={pin}
+          onChangeText={t => t.length <= 4 && setPin(t.replace(/[^0-9]/g, ''))}
+          placeholder="Enter 4-digit PIN"
+          placeholderTextColor={COLORS.t3}
+          keyboardType="number-pad"
+          secureTextEntry
+          style={[st.input, { textAlign: 'center', fontSize: 28, letterSpacing: 12 }]}
+          maxLength={4}
+          autoFocus
+        />
+        {pin.length === 4 && (
+          <View style={{ marginTop: 16 }}>
+            <Text style={st.desc}>Confirm PIN</Text>
+            <TextInput
+              value={confirmPin}
+              onChangeText={t => t.length <= 4 && setConfirmPin(t.replace(/[^0-9]/g, ''))}
+              placeholder="Re-enter PIN"
+              placeholderTextColor={COLORS.t3}
+              keyboardType="number-pad"
+              secureTextEntry
+              style={[st.input, { textAlign: 'center', fontSize: 28, letterSpacing: 12 }]}
+              maxLength={4}
+            />
+            {confirmPin.length === 4 && confirmPin !== pin && (
+              <Text style={{ color: COLORS.danger, fontSize: 12, marginTop: 8, textAlign: 'center' }}>PINs don't match</Text>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const totalSteps = 5;
+  const isLast = step === totalSteps - 1;
+
   return (
-    <ScrollView style={[s.container, { paddingTop: insets.top + 20 }]} contentContainerStyle={{ paddingBottom: 60 }}>
-      {/* Progress */}
-      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 24 }}>
-        {Array.from({ length: TOTAL }).map((_, i) => (
-          <View key={i} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i < step ? COLORS.primary : COLORS.border }} />
+    <View style={[st.container, { paddingTop: insets.top + 20 }]}>
+      {/* Progress bar */}
+      <View style={st.progressWrap}>
+        {Array.from({ length: totalSteps }).map((_, i) => (
+          <View key={i} style={[st.progressDot, i <= step && st.progressActive]} />
         ))}
       </View>
 
-      {/* STEP 1 — Welcome */}
-      {step === 1 && (
-        <View style={{ alignItems: 'center' }}>
-          <Image source={require('../../assets/icon.png')} style={s.logo} resizeMode="contain" />
-          <Text style={s.bigTitle}>MachoHQ</Text>
-          <Text style={s.tagline}>Your Operating System</Text>
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+        {renderStep()}
+      </Animated.View>
 
-          <Card style={{ marginTop: 28, width: '100%' }}>
-            <Text style={{ color: COLORS.t1, fontSize: 15, fontWeight: '600', marginBottom: 10 }}>
-              What this app is for
-            </Text>
-            {[
-              ['◈', 'Build your NeoLife team to Director'],
-              ['◎', 'Work a real prospect pipeline, not a notebook'],
-              ['💼', 'Track every Fiverr account and gig in one place'],
-              ['🔍', 'Know what is selling right now, not last year'],
-              ['⏱', 'Work in blocks and prove you actually did'],
-            ].map(([icon, text], i) => (
-              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 7 }}>
-                <Text style={{ fontSize: 17 }}>{icon}</Text>
-                <Text style={{ color: COLORS.t2, fontSize: 12, flex: 1 }}>{text}</Text>
-              </View>
-            ))}
-          </Card>
-
-          <Card style={{ width: '100%', borderLeftWidth: 3, borderLeftColor: COLORS.accent }}>
-            <Text style={{ color: COLORS.accent, fontSize: 10, fontWeight: '600', letterSpacing: 1 }}>
-              SIX MONTHS TO DIRECTOR
-            </Text>
-            <Text style={{ color: COLORS.t2, fontSize: 12, marginTop: 6, lineHeight: 18 }}>
-              September 2026 to February 2027. Everything in this app points at that one goal.
-            </Text>
-          </Card>
-        </View>
-      )}
-
-      {/* STEP 2 — PIN */}
-      {step === 2 && (
-        <View>
-          <Text style={s.stepTitle}>Lock the app</Text>
-          <Text style={s.stepDesc}>
-            Four digits. Your team data, income and prospects stay private on this phone.
-          </Text>
-
-          <Card style={{ marginTop: 20 }}>
-            <Text style={s.label}>Choose a PIN</Text>
-            <Input value={pin} onChangeText={(v) => setPin(v.replace(/[^0-9]/g, '').slice(0, 4))}
-              placeholder="4 digits" keyboardType="number-pad" />
-            <View style={{ height: 14 }} />
-            <Text style={s.label}>Type it again</Text>
-            <Input value={confirmPin} onChangeText={(v) => setConfirmPin(v.replace(/[^0-9]/g, '').slice(0, 4))}
-              placeholder="Confirm" keyboardType="number-pad" />
-
-            {pin.length === 4 && confirmPin.length === 4 && pin !== confirmPin && (
-              <Text style={{ color: COLORS.danger, fontSize: 11, marginTop: 8 }}>
-                They do not match.
-              </Text>
-            )}
-            {pin.length === 4 && pin === confirmPin && (
-              <Text style={{ color: COLORS.primary, fontSize: 11, marginTop: 8 }}>
-                PIN set. Do not forget it — there is no reset.
-              </Text>
-            )}
-          </Card>
-        </View>
-      )}
-
-      {/* STEP 3 — Profile */}
-      {step === 3 && (
-        <View>
-          <Text style={s.stepTitle}>Who are you?</Text>
-          <Text style={s.stepDesc}>Used across the app so it talks to you, not at you.</Text>
-
-          <Card style={{ marginTop: 20 }}>
-            <Text style={s.label}>Your name</Text>
-            <Input value={name} onChangeText={setName} placeholder="e.g. Macho" />
-
-            <View style={{ height: 16 }} />
-            <Text style={s.label}>Current NeoLife rank</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-              {SVB_TIERS.map(t => (
-                <TouchableOpacity key={t.rank} onPress={() => setRank(t.rank)}
-                  style={[s.tag, rank === t.rank && { borderColor: COLORS.primary, backgroundColor: COLORS.primary + '22' }]}>
-                  <Text style={{ color: rank === t.rank ? COLORS.primary : COLORS.t3, fontSize: 11 }}>
-                    {t.rank}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={{ height: 16 }} />
-            <Text style={s.label}>QPV so far this month</Text>
-            <Input value={startQpv} onChangeText={setStartQpv} placeholder="e.g. 272" keyboardType="numeric" />
-            <Text style={{ color: COLORS.t3, fontSize: 10, marginTop: 6 }}>
-              Leave blank if you are starting fresh. You can correct this any time in Team.
-            </Text>
-          </Card>
-        </View>
-      )}
-
-      {/* STEP 4 — API key */}
-      {step === 4 && (
-        <View>
-          <Text style={s.stepTitle}>Turn on the AI</Text>
-          <Text style={s.stepDesc}>
-            About half of this app runs on AI — drafting messages, auditing gigs, researching what
-            sells, grading your skills. Google Gemini is free and takes two minutes to set up.
-          </Text>
-
-          <Card style={{ marginTop: 20 }}>
-            <Badge text="Free — no card needed" color={COLORS.primary} />
-            <Text style={{ color: COLORS.t2, fontSize: 12, lineHeight: 19, marginTop: 10 }}>
-              1. Open aistudio.google.com/apikey{'\n'}
-              2. Sign in with Google{'\n'}
-              3. Tap Create API key{'\n'}
-              4. Paste it below
-            </Text>
-            <TouchableOpacity onPress={() => Linking.openURL('https://aistudio.google.com/apikey').catch(() => {})}>
-              <Text style={{ color: COLORS.primary, fontSize: 12, marginTop: 10 }}>
-                Open Google AI Studio →
-              </Text>
-            </TouchableOpacity>
-
-            <View style={{ height: 16 }} />
-            <Input value={apiKey} onChangeText={setApiKey} placeholder="AIza..." />
-
-            {apiKey.trim().length > 10 && (
-              <Text style={{ color: COLORS.primary, fontSize: 11, marginTop: 8 }}>
-                Key saved. AI features will be live.
-              </Text>
-            )}
-          </Card>
-
-          <Card style={{ borderLeftWidth: 3, borderLeftColor: COLORS.warn }}>
-            <Text style={{ color: COLORS.t2, fontSize: 11, lineHeight: 17 }}>
-              You can skip this and add it later in More → Settings, where you can also switch to
-              Groq, OpenRouter or Claude. Everything else works without a key.
-            </Text>
-          </Card>
-        </View>
-      )}
-
-      {/* STEP 5 — Ready */}
-      {step === 5 && (
-        <View>
-          <Text style={s.stepTitle}>Ready</Text>
-          <Text style={s.stepDesc}>Here is where to start.</Text>
-
-          <Card style={{ marginTop: 20 }}>
-            {[
-              ['1', 'Add your team', 'Team → Add downline. Set their income stage honestly.'],
-              ['2', 'Add your prospects', 'Pipeline → Add prospect. Everyone you already know goes in the Cold List.'],
-              ['3', 'Open the Attack Plan', 'HQ → Attack Plan. It tells you who to contact and writes the message.'],
-              ['4', 'Add your Fiverr accounts', 'More → Fiverr Hub. Log your gigs, then audit them.'],
-              ['5', 'Start a focus block', 'More → Focus. It keeps running if you close the app.'],
-            ].map(([n, title, desc], i) => (
-              <View key={i} style={{ flexDirection: 'row', gap: 12, paddingVertical: 9, borderBottomWidth: i < 4 ? 1 : 0, borderBottomColor: COLORS.border }}>
-                <View style={s.numCircle}><Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '700' }}>{n}</Text></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: COLORS.t1, fontSize: 13, fontWeight: '600' }}>{title}</Text>
-                  <Text style={{ color: COLORS.t3, fontSize: 11, marginTop: 1 }}>{desc}</Text>
-                </View>
-              </View>
-            ))}
-          </Card>
-
-          <Card style={{ borderLeftWidth: 3, borderLeftColor: COLORS.accent }}>
-            <Text style={{ color: COLORS.t2, fontSize: 12, lineHeight: 18 }}>
-              The app is only as honest as what you put in it. Log the real numbers, even the
-              ugly ones. That is the whole point.
-            </Text>
-          </Card>
-        </View>
-      )}
-
-      {/* Nav */}
-      <View style={{ flexDirection: 'row', gap: 10, marginTop: 24 }}>
-        {step > 1 && (
-          <Btn outline onPress={() => setStep(step - 1)} style={{ paddingHorizontal: 24 }}>Back</Btn>
+      {/* Bottom buttons */}
+      <View style={[st.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
+        {step > 0 && (
+          <TouchableOpacity onPress={() => animateStep(step - 1)} style={st.backBtn}>
+            <Text style={{ color: COLORS.t2, fontSize: 15 }}>Back</Text>
+          </TouchableOpacity>
         )}
-        {step < TOTAL ? (
-          <Btn full color={canNext() ? COLORS.primary : COLORS.border}
-            onPress={() => canNext() && setStep(step + 1)}>
-            {step === 4 && !apiKey.trim() ? 'Skip for now' : 'Continue'}
-          </Btn>
-        ) : (
-          <Btn full onPress={finish}>Start using MachoHQ</Btn>
-        )}
+        <TouchableOpacity
+          onPress={() => isLast ? finish() : animateStep(step + 1)}
+          disabled={!canNext()}
+          style={[st.nextBtn, !canNext() && { opacity: 0.3 }]}
+        >
+          <Text style={st.nextText}>{step === 0 ? 'Get Started' : isLast ? 'Launch MachoHQ' : 'Continue'}</Text>
+        </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: 18 },
-  logo: { width: 170, height: 115 },
-  bigTitle: { fontSize: 26, fontWeight: '800', color: COLORS.t1, marginTop: 4 },
-  tagline: { color: COLORS.t3, fontSize: 12, marginTop: 2 },
-  stepTitle: { fontSize: 22, fontWeight: '700', color: COLORS.t1, marginBottom: 6 },
-  stepDesc: { color: COLORS.t2, fontSize: 13, lineHeight: 19 },
-  label: { color: COLORS.t2, fontSize: 12, marginBottom: 6 },
-  tag: { paddingHorizontal: 11, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border },
-  numCircle: { width: 26, height: 26, borderRadius: 13, backgroundColor: COLORS.primary + '22', alignItems: 'center', justifyContent: 'center' },
+const st = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: 24 },
+  progressWrap: { flexDirection: 'row', gap: 6, marginBottom: 32, justifyContent: 'center' },
+  progressDot: { width: 28, height: 4, borderRadius: 2, backgroundColor: COLORS.border },
+  progressActive: { backgroundColor: COLORS.primary },
+  stepContent: { flex: 1, justifyContent: 'center' },
+  bigEmoji: { fontSize: 48, textAlign: 'center', marginBottom: 16 },
+  heroTitle: { fontSize: 36, fontWeight: '800', color: COLORS.t1, textAlign: 'center' },
+  heroSub: { fontSize: 14, color: COLORS.primary, textAlign: 'center', marginTop: 6, fontWeight: '600' },
+  spacer: { height: 32 },
+  desc: { fontSize: 14, color: COLORS.t2, lineHeight: 22, textAlign: 'center' },
+  stepLabel: { fontSize: 10, color: COLORS.primary, fontWeight: '700', letterSpacing: 2, marginBottom: 12 },
+  stepTitle: { fontSize: 26, fontWeight: '800', color: COLORS.t1, marginBottom: 8 },
+  input: {
+    height: 52, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: COLORS.surface, color: COLORS.t1, paddingHorizontal: 16,
+    fontSize: 16, marginTop: 8,
+  },
+  rankOption: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 14, paddingHorizontal: 16,
+    borderRadius: 10, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: COLORS.surface, marginBottom: 8,
+  },
+  rankSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryDim },
+  rankText: { color: COLORS.t2, fontSize: 15 },
+  bottomBar: { flexDirection: 'row', gap: 12, paddingTop: 12 },
+  backBtn: { height: 52, paddingHorizontal: 20, justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: COLORS.border },
+  nextBtn: {
+    flex: 1, height: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+  },
+  nextText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

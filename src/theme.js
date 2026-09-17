@@ -1,21 +1,43 @@
+// MachoHQ V5 — Personal Performance OS palette
+// Redesigned: obsidian + electric violet + lime/emerald wins + amber streaks
 export const COLORS = {
-  bg: '#0c1220',
-  surface: '#131b2e',
-  card: '#182038',
+  // Backgrounds
+  bg: '#080A12',
+  surface: '#121725',
+  card: '#181E30',
   border: '#1f2b45',
-  primary: '#00d4aa',
-  primaryDim: '#00d4aa22',
-  accent: '#7c5cfc',
-  accentDim: '#7c5cfc22',
-  warn: '#ffb347',
-  warnDim: '#ffb34722',
-  danger: '#ff6b6b',
-  dangerDim: '#ff6b6b22',
-  blue: '#4da6ff',
-  blueDim: '#4da6ff22',
-  t1: '#e8edf5',
-  t2: '#8b95a8',
+
+  // Brand
+  primary: '#7C5CFF',     // electric violet — MachoHQ identity
+  primaryDim: '#7C5CFF22',
+
+  // Achievement / wins
+  lime: '#B8FF5C',
+  limeDim: '#B8FF5C22',
+  success: '#31E6A1',
+  successDim: '#31E6A122',
+
+  // Streaks / urgency
+  accent: '#FFB84D',
+  accentDim: '#FFB84D22',
+  warn: '#FFB84D',
+  warnDim: '#FFB84D22',
+
+  // Danger / broken commitment
+  danger: '#FF5D73',
+  dangerDim: '#FF5D7322',
+
+  // Info
+  blue: '#4DA6FF',
+  blueDim: '#4DA6FF22',
+
+  // Text
+  t1: '#F7F8FC',
+  t2: '#8D95A8',
   t3: '#4f5b73',
+
+  // Legacy compat
+  teal: '#31E6A1',
 };
 
 export const SPACING = {
@@ -23,10 +45,10 @@ export const SPACING = {
 };
 
 export const FONT = {
-  display: { fontSize: 44, fontWeight: '800', color: COLORS.t1 },
-  h1: { fontSize: 22, fontWeight: '700', color: COLORS.t1 },
-  h2: { fontSize: 14, fontWeight: '600', color: COLORS.t2 },
-  body: { fontSize: 13, color: COLORS.t2 },
-  caption: { fontSize: 11, color: COLORS.t3 },
-  micro: { fontSize: 9, color: COLORS.t3 },
+  display: { fontSize: 44, fontWeight: '800', color: '#F7F8FC' },
+  h1: { fontSize: 22, fontWeight: '700', color: '#F7F8FC' },
+  h2: { fontSize: 14, fontWeight: '600', color: '#8D95A8' },
+  body: { fontSize: 13, color: '#8D95A8' },
+  caption: { fontSize: 11, color: '#4f5b73' },
+  micro: { fontSize: 9, color: '#4f5b73' },
 };

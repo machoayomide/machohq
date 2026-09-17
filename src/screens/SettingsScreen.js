@@ -8,7 +8,7 @@ import { requestPermissions, cancelAll, scheduleDaily } from '../utils/notificat
 import { getBookCount, listBooks } from '../utils/knowledge';
 import { clearKeyCache, PROVIDERS, getProvider, getKey, testKey } from '../utils/ai';
 
-export default function SettingsScreen({ team, prospects, earnings, spending, books, accounts, gigs, journal, data, onBack }) {
+export default function SettingsScreen({ team, prospects, earnings, spending, books, accounts, gigs, journal, data, profile, clearAllData, onBack }) {
   const insets = useSafeAreaInsets();
   const [section, setSection] = useState(null);
   const [newPin, setNewPin] = useState('');
@@ -303,6 +303,12 @@ export default function SettingsScreen({ team, prospects, earnings, spending, bo
       <Card style={{ padding: 4 }}>
         <Row icon="📤" label="Export backup" sub="Share all your data as JSON" onPress={exportData} />
         <Row icon="🗑" label="Erase everything" sub="Delete all data permanently" onPress={resetAll} />
+        {clearAllData && (
+          <Row icon="🔄" label="Factory reset" sub="Clear data and restart onboarding" onPress={() =>
+            Alert.alert('Factory Reset', 'This clears everything and takes you back to setup. Are you sure?',
+              [{ text: 'Cancel', style: 'cancel' }, { text: 'Reset', style: 'destructive', onPress: clearAllData }]
+            )} />
+        )}
       </Card>
 
       <Card style={{ alignItems: 'center', padding: 20 }}>

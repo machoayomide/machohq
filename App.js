@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text } from 'react-native';
+import { View, Text, BackHandler, Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { COLORS } from './src/theme';
 import { getData, setData, today } from './src/utils/storage';
 import { DEFAULT_ACTIONS } from './src/data/constants';
@@ -15,6 +17,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import DailyBriefScreen from './src/screens/DailyBriefScreen';
 import NeoLifeScreen from './src/screens/NeoLifeScreen';
 import PipelineScreen from './src/screens/PipelineScreen';
+import OutreachScreen from './src/screens/OutreachScreen';
 import TasksScreen from './src/screens/TasksScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import CloudScreen from './src/screens/CloudScreen';
@@ -35,7 +38,13 @@ import AIScreen from './src/screens/AIScreen';
 
 const Tab = createBottomTabNavigator();
 
-// Five tabs only. Bigger icons, readable labels.
+// Notification handler — show even when app is open
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false,
+  }),
+});
+
 const TabIcon = ({ icon, label, focused }) => (
   <View style={{ alignItems: 'center', width: 70 }}>
     {focused && <View style={{ width: 22, height: 3, borderRadius: 2, backgroundColor: COLORS.primary, marginBottom: 4 }} />}
@@ -49,7 +58,8 @@ const TabIcon = ({ icon, label, focused }) => (
 export default function App() {
   const [locked, setLocked] = useState(true);
   const [onboarded, setOnboarded] = useState(null);
-  const [appData, setAppData] = useState({ qpv: 0, streak: 0 });
+  const [profile, setProfile] = useState(null);
+  const [appData, setAppData] = useState({ qpv: 0, streak: 0, dayNumber: 1 });
   const [team, setTeam] = useState([]);
   const [prospects, setProspects] = useState([]);
   const [dailyActions, setDailyActions] = useState([]);
@@ -63,15 +73,18 @@ export default function App() {
 
   const [hqView, setHqView] = useState('home');
   const [moreView, setMoreView] = useState(null);
+  const navRef = useRef(null);
 
+  // ─── LOAD DATA ───
   useEffect(() => {
     Promise.all([
       getData('appData'), getData('team'), getData('prospects'),
       getData('da_' + today()), getData('earnings'), getData('spending'),
       getData('books'), getData('fiverrAccounts'), getData('fiverrGigs'),
-      getData('journal'), getData('onboarded'),
-    ]).then(([d, t, p, a, e, sp, b, fa, fg, j, ob]) => {
+      getData('journal'), getData('onboarded'), getData('profile'),
+    ]).then(([d, t, p, a, e, sp, b, fa, fg, j, ob, prof]) => {
       setOnboarded(!!ob);
+      setProfile(prof || null);
       if (d) setAppData(d);
       if (t) setTeam(t);
       if (p) setProspects(p);
@@ -86,8 +99,47 @@ export default function App() {
     });
   }, []);
 
-  // Debounced saving. Writing ten AsyncStorage keys on every keystroke was
-  // what made the app feel sluggish — now it batches after 600ms of quiet.
+  // ─── ANDROID BACK BUTTON ───
+  useEffect(() => {
+    const handler = () => {
+      // If in a More sub-view, go back to More menu
+      if (moreView) { setMoreView(null); return true; }
+      // If in HQ sub-view (brief), go back to home
+      if (hqView !== 'home') { setHqView('home'); return true; }
+      // If on a non-HQ tab, go to HQ
+      const route = navRef.current?.getCurrentRoute?.();
+      if (route && route.name !== 'HQ') {
+        navRef.current?.navigate?.('HQ');
+        return true;
+      }
+      // On HQ home — minimize instead of closing (let system handle)
+      return false;
+    };
+    BackHandler.addEventListener('hardwareBackPress', handler);
+    return () => BackHandler.removeEventListener('hardwareBackPress', handler);
+  }, [moreView, hqView]);
+
+  // ─── NOTIFICATION DEEP-LINKING ───
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      if (!data?.screen) return;
+      // Navigate to the right screen
+      const screen = data.screen;
+      if (screen === 'attack') setHqView('brief');
+      else if (screen === 'focus') setMoreView('focus');
+      else if (screen === 'tasks') setMoreView('tasks');
+      else if (screen === 'journal') setMoreView('journal');
+      else if (screen === 'score') setMoreView('score');
+      else if (screen === 'outreach') setMoreView('outreach');
+      else if (screen === 'reading') setMoreView('books');
+      else if (screen === 'neolife') navRef.current?.navigate?.('Team');
+      else if (screen === 'pipeline') navRef.current?.navigate?.('Pipeline');
+    });
+    return () => sub.remove();
+  }, []);
+
+  // ─── DEBOUNCED SAVE ───
   const saveTimer = useRef(null);
   useEffect(() => {
     if (!loaded) return;
@@ -107,7 +159,7 @@ export default function App() {
     return () => clearTimeout(saveTimer.current);
   }, [appData, team, prospects, dailyActions, earnings, spending, books, accounts, gigs, journal, loaded]);
 
-  // Automatic cloud backup, at most once an hour
+  // ─── CLOUD BACKUP ───
   useEffect(() => {
     if (!loaded) return;
     (async () => {
@@ -119,10 +171,23 @@ export default function App() {
     })();
   }, [loaded]);
 
+  // ─── CLEAR ALL DATA (for settings) ───
+  const clearAllData = async () => {
+    const allKeys = await AsyncStorage.getAllKeys();
+    if (allKeys.length > 0) await AsyncStorage.multiRemove(allKeys);
+    setOnboarded(false);
+    setTeam([]); setProspects([]); setEarnings([]); setSpending([]);
+    setBooks([]); setAccounts([]); setGigs([]); setJournal([]);
+    setAppData({ qpv: 0, streak: 0, dayNumber: 1 });
+    setProfile(null);
+    setHqView('home'); setMoreView(null);
+  };
+
   const toggleAction = useCallback((id) => {
     setDailyActions(prev => prev.map(a => a.id === id ? { ...a, done: !a.done } : a));
   }, []);
 
+  // ─── GATES ───
   if (onboarded === null) {
     return (<SafeAreaProvider><StatusBar style="light" />
       <View style={{ flex: 1, backgroundColor: COLORS.bg }} /></SafeAreaProvider>);
@@ -130,7 +195,11 @@ export default function App() {
 
   if (!onboarded) {
     return (<SafeAreaProvider><StatusBar style="light" />
-      <OnboardingScreen onDone={() => { setOnboarded(true); setLocked(false); }} /></SafeAreaProvider>);
+      <OnboardingScreen onDone={() => {
+        setOnboarded(true); setLocked(false);
+        getData('profile').then(p => setProfile(p));
+        getData('appData').then(d => d && setAppData(d));
+      }} /></SafeAreaProvider>);
   }
 
   if (locked) {
@@ -142,52 +211,49 @@ export default function App() {
     colors: { primary: COLORS.primary, background: COLORS.bg, card: COLORS.bg, text: COLORS.t1, border: COLORS.border, notification: COLORS.primary },
   };
 
-  // Everything reachable from the More tab
   const renderMore = () => {
-    const back = () => setMoreView(null);
     switch (moreView) {
-      case 'tasks':    return <TasksScreen team={team} prospects={prospects} />;
-      case 'calendar': return <CalendarScreen team={team} prospects={prospects} books={books} />;
-      case 'cloud':    return <CloudScreen />;
-      case 'focus':    return <FocusScreen />;
-      case 'fiverr':   return <FiverrScreen accounts={accounts} setAccounts={setAccounts} gigs={gigs} setGigs={setGigs} />;
-      case 'research': return <ResearchScreen />;
-      case 'skills':   return <SkillsScreen accounts={accounts} gigs={gigs} earnings={earnings} />;
+      case 'tasks':       return <TasksScreen team={team} prospects={prospects} />;
+      case 'calendar':    return <CalendarScreen team={team} prospects={prospects} books={books} />;
+      case 'cloud':       return <CloudScreen />;
+      case 'focus':       return <FocusScreen />;
+      case 'outreach':    return <OutreachScreen prospects={prospects} setProspects={setProspects} data={appData} />;
+      case 'fiverr':      return <FiverrScreen accounts={accounts} setAccounts={setAccounts} gigs={gigs} setGigs={setGigs} />;
+      case 'research':    return <ResearchScreen />;
+      case 'skills':      return <SkillsScreen accounts={accounts} gigs={gigs} earnings={earnings} />;
       case 'leaderboard': return <LeaderboardScreen team={team} />;
-      case 'library':  return <LibraryScreen />;
-      case 'money':    return <GrowthScreen earnings={earnings} setEarnings={setEarnings} books={books} setBooks={setBooks} />;
-      case 'books':    return <GrowthScreen earnings={earnings} setEarnings={setEarnings} books={books} setBooks={setBooks} />;
-      case 'spending': return <SpendingScreen spending={spending} setSpending={setSpending} earnings={earnings} />;
-      case 'score':    return <ScoreScreen dailyActions={dailyActions} data={appData} />;
-      case 'journal':  return <JournalScreen entries={journal} setEntries={setJournal} />;
-      case 'review':   return <WeeklyReviewScreen data={appData} team={team} prospects={prospects} earnings={earnings} dailyActions={dailyActions} books={books} />;
-      case 'settings': return <SettingsScreen team={team} prospects={prospects} earnings={earnings} spending={spending} books={books} accounts={accounts} gigs={gigs} journal={journal} data={appData} />;
-      default:         return <MoreScreen onSelect={setMoreView} />;
+      case 'library':     return <LibraryScreen />;
+      case 'money':       return <GrowthScreen earnings={earnings} setEarnings={setEarnings} books={books} setBooks={setBooks} />;
+      case 'books':       return <GrowthScreen earnings={earnings} setEarnings={setEarnings} books={books} setBooks={setBooks} />;
+      case 'spending':    return <SpendingScreen spending={spending} setSpending={setSpending} earnings={earnings} />;
+      case 'score':       return <ScoreScreen dailyActions={dailyActions} data={appData} />;
+      case 'journal':     return <JournalScreen entries={journal} setEntries={setJournal} />;
+      case 'review':      return <WeeklyReviewScreen data={appData} team={team} prospects={prospects} earnings={earnings} dailyActions={dailyActions} books={books} />;
+      case 'settings':    return <SettingsScreen team={team} prospects={prospects} earnings={earnings} spending={spending} books={books} accounts={accounts} gigs={gigs} journal={journal} data={appData} profile={profile} clearAllData={clearAllData} />;
+      default:            return <MoreScreen onSelect={setMoreView} />;
     }
   };
 
   return (
     <SafeAreaProvider><StatusBar style="light" />
-    <NavigationContainer theme={darkTheme}>
+    <NavigationContainer ref={navRef} theme={darkTheme}>
       <Tab.Navigator screenOptions={{
         headerShown: false,
         tabBarStyle: {
           backgroundColor: COLORS.bg,
           borderTopColor: COLORS.border,
           borderTopWidth: 1,
-          height: 74,
-          paddingBottom: 12,
-          paddingTop: 8,
+          height: 74, paddingBottom: 12, paddingTop: 8,
         },
         tabBarShowLabel: false,
       }}>
-
-        <Tab.Screen name="HQ" options={{ tabBarIcon: ({ focused }) => <TabIcon icon="⌂" label="HQ" focused={focused} /> }}>
+        <Tab.Screen name="HQ" options={{ tabBarIcon: ({ focused }) => <TabIcon icon="⚡" label="HQ" focused={focused} /> }}>
           {() => (
             <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
               {hqView === 'home' ? (
                 <HomeScreen data={appData} dailyActions={dailyActions} toggleAction={toggleAction}
-                  team={team} prospects={prospects} onOpenBrief={() => setHqView('brief')} />
+                  team={team} prospects={prospects} profile={profile}
+                  onOpenBrief={() => setHqView('brief')} />
               ) : (
                 <DailyBriefScreen team={team} prospects={prospects} data={appData} books={books}
                   onBack={() => setHqView('home')} />
@@ -216,7 +282,7 @@ export default function App() {
               {moreView && (
                 <View style={{ paddingHorizontal: 16, paddingTop: 48, backgroundColor: COLORS.bg }}>
                   <Text onPress={() => setMoreView(null)} style={{ color: COLORS.primary, fontSize: 14, paddingVertical: 6 }}>
-                    ← All features
+                    ← Back
                   </Text>
                 </View>
               )}
@@ -224,7 +290,6 @@ export default function App() {
             </View>
           )}
         </Tab.Screen>
-
       </Tab.Navigator>
     </NavigationContainer></SafeAreaProvider>
   );
