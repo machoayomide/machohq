@@ -1,180 +1,271 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../theme';
 import { Card, Badge, ProgressBar } from '../components/UI';
 import { daysBetween, today, greeting, getData, setData } from '../utils/storage';
 import { CHALLENGE } from '../data/constants';
-import { requestPermissions, scheduleDaily, scheduleAccountabilityPings } from '../utils/notifications';
+import { requestPermissions, scheduleDailyNudges } from '../utils/notifications';
 
-export default function HomeScreen({ data, dailyActions, toggleAction, team, prospects, onOpenBrief }) {
+const QUICK_LINKS = [
+  { key: 'focus',    icon: '⏱', label: 'Focus' },
+  { key: 'tasks',    icon: '✓', label: 'Tasks' },
+  { key: 'outreach', icon: '📲', label: 'Outreach' },
+  { key: 'fiverr',   icon: '💼', label: 'Fiverr' },
+  { key: 'books',    icon: '📖', label: 'Books' },
+  { key: 'journal',  icon: '📝', label: 'Journal' },
+  { key: 'score',    icon: '⚡', label: 'Score' },
+  { key: 'calendar', icon: '📅', label: 'Calendar' },
+];
+
+export default function HomeScreen({ data, dailyActions, toggleAction, team, prospects, profile, onOpenBrief, onNavigate }) {
   const insets = useSafeAreaInsets();
   const daysLeft = daysBetween(today(), CHALLENGE.end);
   const actionsDone = dailyActions.filter(a => a.done).length;
-  const score = Math.round((actionsDone / (dailyActions.length || 1)) * 100);
+  const totalActions = dailyActions.length || 1;
+  const score = Math.round((actionsDone / totalActions) * 100);
+  const nickname = profile?.nickname || profile?.name || 'Macho';
 
-  // Schedule daily reminders once
+  const startDate = data?.startDate ? new Date(data.startDate) : new Date();
+  const dayNumber = Math.max(1, Math.ceil((Date.now() - startDate.getTime()) / 86400000));
+
   useEffect(() => {
     (async () => {
-      const done = await getData('dailyRemindersSet');
+      const done = await getData('dailyRemindersSet_v3');
       if (done) return;
       const granted = await requestPermissions();
       if (!granted) return;
-      await scheduleDaily('Morning attack plan', 'Check who needs you today before the day runs away.', 7, 0);
-      await scheduleDaily('Midday PV check', 'How many people have you contacted so far?', 13, 0);
-      await scheduleDaily('Reading time', '15 pages. That is all. Pick up the book.', 20, 30);
-      await scheduleDaily('No Excuses Journal', 'What went right today? What went wrong?', 22, 0);
-      await setData('dailyRemindersSet', true);
+      await scheduleDailyNudges();
+      await setData('dailyRemindersSet_v3', true);
     })();
   }, []);
 
-  // Random accountability pings, rescheduled once per day
-  useEffect(() => {
-    (async () => {
-      const last = await getData('pingsScheduledOn');
-      if (last === today()) return;
-      const enabled = await getData('notifsEnabled');
-      if (enabled === false) return;
-      await scheduleAccountabilityPings(9, 21, 3);
-      await setData('pingsScheduledOn', today());
-    })();
-  }, []);
-
-  // Count what needs attention
   const zeroPV = (team || []).filter(m => m.pv === 0).length;
-  const overdue = (prospects || []).filter(p => daysBetween(p.lastContact, today()) >= 3 && p.stage < 7).length;
+  const overdue = (prospects || []).filter(p => {
+    const d = daysBetween(p.lastContact || p.added, today());
+    return d >= 3 && p.stage !== 'Joined' && p.stage !== 'Went Cold';
+  }).length;
   const coldTeam = (team || []).filter(m => daysBetween(m.lastContact || m.joined, today()) >= 7).length;
   const totalAttention = zeroPV + overdue + coldTeam;
 
-  const qpvGap = Math.max(0, 750 - (data.qpv || 0));
+  const streakLabel = (s) => {
+    if (s >= 100) return 'Unstoppable';
+    if (s >= 60) return 'Identity';
+    if (s >= 30) return 'Discipline';
+    if (s >= 14) return 'Momentum';
+    if (s >= 7) return 'Foundation';
+    return '';
+  };
+
+  const pct = actionsDone / totalActions;
+  const progressColor = pct >= 0.75 ? COLORS.lime : pct >= 0.5 ? COLORS.success : pct >= 0.25 ? COLORS.accent : COLORS.t3;
+
+  const nav = (key) => {
+    if (onNavigate) onNavigate(key);
+  };
 
   return (
-    <ScrollView style={[s.container, { paddingTop: 12 }]} contentContainerStyle={{ paddingBottom: 100 }}>
-      <View style={s.header}>
-        <Text style={s.dayLabel}>Day {new Date().getDate()} of 30</Text>
-        <Text style={s.greeting}>{greeting()}, Macho</Text>
+    <ScrollView style={[st.container, { paddingTop: insets.top + 6 }]} contentContainerStyle={{ paddingBottom: 100 }}>
+
+      {/* ═══ BOLD COUNTDOWN ═══ */}
+      <View style={st.countdownSection}>
+        <LinearGradient colors={['#1a1230', '#080A12']} style={st.countdownGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+          <Text style={st.countdownSub}>{greeting()}, {nickname}</Text>
+          <View style={st.countdownRow}>
+            <Text style={st.countdownNum}>{daysLeft}</Text>
+            <View>
+              <Text style={st.countdownLabel}>DAYS TO</Text>
+              <Text style={st.countdownTitle}>DIRECTOR</Text>
+            </View>
+          </View>
+          <View style={st.monthBar}>
+            {(CHALLENGE.months || [1,2,3,4,5,6]).map((m, i) => (
+              <View key={i} style={[st.monthDot, i === 0 && st.monthActive]} />
+            ))}
+          </View>
+          <View style={st.qpvRow}>
+            <Text style={st.qpvLabel}>September QPV</Text>
+            <Text style={st.qpvValue}>{data.qpv || 0} / 750</Text>
+          </View>
+          <ProgressBar value={data.qpv || 0} max={750} height={4} color={COLORS.accent} />
+        </LinearGradient>
       </View>
 
-      {/* Director Challenge */}
-      <Card glow={COLORS.accent}>
-        <View style={s.row}>
-          <Text style={s.challengeLabel}>DIRECTOR CHALLENGE</Text>
-          <Badge text="Month 1 / 6" color={COLORS.accent} />
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
-          <Text style={{ fontSize: 36, fontWeight: '800', color: COLORS.t1 }}>{daysLeft}</Text>
-          <Text style={{ color: COLORS.t2, fontSize: 13 }}>days to Director</Text>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 3, marginBottom: 8 }}>
-          {CHALLENGE.months.map((m, i) => (
-            <View key={i} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i === 0 ? COLORS.accent : COLORS.border }} />
-          ))}
-        </View>
-        <View style={s.row}>
-          <Text style={{ color: COLORS.t2, fontSize: 12 }}>September QPV</Text>
-          <Text style={{ color: COLORS.t1, fontSize: 14, fontWeight: '600' }}>{data.qpv || 0} / 750</Text>
-        </View>
-        <ProgressBar value={data.qpv || 0} max={750} height={6} />
-        {qpvGap > 0 && (
-          <Text style={{ color: COLORS.warn, fontSize: 11, marginTop: 6 }}>{qpvGap} PV to close this month</Text>
-        )}
-      </Card>
+      {/* ═══ QUICK ACCESS GRID ═══ */}
+      <View style={st.quickGrid}>
+        {QUICK_LINKS.map(q => (
+          <TouchableOpacity key={q.key} style={st.quickItem} onPress={() => nav(q.key)} activeOpacity={0.7}>
+            <View style={st.quickIcon}><Text style={{ fontSize: 18 }}>{q.icon}</Text></View>
+            <Text style={st.quickLabel}>{q.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-      {/* Attack plan entry */}
+      {/* ═══ STATS STRIP ═══ */}
+      <View style={st.statsRow}>
+        <View style={st.statPill}>
+          <Text style={{ fontSize: 14 }}>🔥</Text>
+          <Text style={st.statNum}>{data.streak || 0}</Text>
+          <Text style={st.statSub}>streak</Text>
+        </View>
+        <View style={st.statPill}>
+          <Text style={{ fontSize: 14 }}>⚡</Text>
+          <Text style={[st.statNum, { color: COLORS.primary }]}>{score}</Text>
+          <Text style={st.statSub}>score</Text>
+        </View>
+        <View style={st.statPill}>
+          <Text style={{ fontSize: 14 }}>📊</Text>
+          <Text style={[st.statNum, { color: COLORS.lime }]}>{actionsDone}/{totalActions}</Text>
+          <Text style={st.statSub}>done</Text>
+        </View>
+      </View>
+
+      {/* ═══ CRITICAL ACTIONS ═══ */}
+      {totalAttention > 0 && (
+        <TouchableOpacity onPress={onOpenBrief} activeOpacity={0.7}>
+          <Card style={{ borderLeftWidth: 3, borderLeftColor: COLORS.danger, padding: 14 }}>
+            <Text style={{ color: COLORS.t1, fontSize: 14, fontWeight: '700' }}>
+              {totalAttention} people need you
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 14, marginTop: 6 }}>
+              {zeroPV > 0 && <Text style={{ color: COLORS.danger, fontSize: 11 }}>{zeroPV} zero PV</Text>}
+              {overdue > 0 && <Text style={{ color: COLORS.accent, fontSize: 11 }}>{overdue} cold prospects</Text>}
+              {coldTeam > 0 && <Text style={{ color: COLORS.blue, fontSize: 11 }}>{coldTeam} quiet team</Text>}
+            </View>
+          </Card>
+        </TouchableOpacity>
+      )}
+
+      {/* ═══ ATTACK PLAN ═══ */}
       <TouchableOpacity onPress={onOpenBrief} activeOpacity={0.7}>
-        <Card glow={totalAttention > 0 ? COLORS.warn : undefined} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <View style={[s.iconBox, { backgroundColor: totalAttention > 0 ? COLORS.warn + '22' : COLORS.primary + '22' }]}>
-            <Text style={{ fontSize: 20 }}>⚡</Text>
-          </View>
+        <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
+          <View style={st.attackIcon}><Text style={{ fontSize: 18 }}>⚡</Text></View>
           <View style={{ flex: 1 }}>
             <Text style={{ color: COLORS.t1, fontSize: 14, fontWeight: '600' }}>Today's attack plan</Text>
             <Text style={{ color: COLORS.t3, fontSize: 11, marginTop: 2 }}>
-              {totalAttention > 0
-                ? `${totalAttention} people need you · messages ready to send`
-                : 'Everyone covered — go prospect'}
+              {totalAttention > 0 ? `${totalAttention} actions · messages ready` : 'Everyone covered — go prospect'}
             </Text>
           </View>
           <Text style={{ color: COLORS.t3, fontSize: 18 }}>›</Text>
         </Card>
       </TouchableOpacity>
 
-      {/* Attention breakdown */}
-      {totalAttention > 0 && (
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-          {zeroPV > 0 && (
-            <Card style={{ flex: 1, padding: 10, marginBottom: 0, alignItems: 'center' }}>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: COLORS.danger }}>{zeroPV}</Text>
-              <Text style={{ color: COLORS.t3, fontSize: 9, textAlign: 'center' }}>zero PV</Text>
-            </Card>
-          )}
-          {overdue > 0 && (
-            <Card style={{ flex: 1, padding: 10, marginBottom: 0, alignItems: 'center' }}>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: COLORS.accent }}>{overdue}</Text>
-              <Text style={{ color: COLORS.t3, fontSize: 9, textAlign: 'center' }}>prospects cold</Text>
-            </Card>
-          )}
-          {coldTeam > 0 && (
-            <Card style={{ flex: 1, padding: 10, marginBottom: 0, alignItems: 'center' }}>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: COLORS.blue }}>{coldTeam}</Text>
-              <Text style={{ color: COLORS.t3, fontSize: 9, textAlign: 'center' }}>team quiet</Text>
-            </Card>
-          )}
-        </View>
-      )}
-
-      {/* Daily actions */}
+      {/* ═══ DAILY POWER ACTIONS ═══ */}
       <Card>
-        <View style={[s.row, { marginBottom: 10 }]}>
-          <Text style={{ color: COLORS.t2, fontSize: 13, fontWeight: '600' }}>Daily power actions</Text>
-          <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '600' }}>{actionsDone}/{dailyActions.length}</Text>
+        <View style={[st.row, { marginBottom: 8 }]}>
+          <Text style={{ color: COLORS.t2, fontSize: 13, fontWeight: '600' }}>Power Actions</Text>
+          <Text style={{ color: progressColor, fontSize: 12, fontWeight: '700' }}>{actionsDone}/{totalActions}</Text>
+        </View>
+        {/* Progress dots */}
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
+          {dailyActions.map(a => (
+            <TouchableOpacity key={a.id} onPress={() => toggleAction(a.id)}>
+              <View style={[st.dot, a.done && { backgroundColor: progressColor, borderColor: progressColor }]}>
+                {a.done && <Text style={{ color: COLORS.bg, fontSize: 9, fontWeight: '700' }}>✓</Text>}
+              </View>
+            </TouchableOpacity>
+          ))}
         </View>
         {dailyActions.map(a => (
-          <TouchableOpacity key={a.id} onPress={() => toggleAction(a.id)} style={s.actionRow}>
-            <View style={[s.checkbox, a.done && s.checkboxDone]}>
+          <TouchableOpacity key={a.id} onPress={() => toggleAction(a.id)} style={st.actionRow}>
+            <View style={[st.checkbox, a.done && { backgroundColor: progressColor, borderColor: progressColor }]}>
               {a.done && <Text style={{ color: COLORS.bg, fontSize: 12, fontWeight: '700' }}>✓</Text>}
             </View>
             <Text style={{ fontSize: 15, marginRight: 8 }}>{a.icon}</Text>
-            <Text style={[s.actionLabel, a.done && s.actionDone]}>{a.label}</Text>
+            <Text style={[st.actionLabel, a.done && st.actionDone]}>{a.label}</Text>
           </TouchableOpacity>
         ))}
       </Card>
 
-      {/* Score */}
-      <Card glow={COLORS.primary}>
-        <View style={s.row}>
-          <View>
-            <Text style={s.scoreLabel}>MACHO SCORE</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-              <Text style={{ fontSize: 36, fontWeight: '800', color: COLORS.t1 }}>{score}</Text>
-              <Text style={{ color: COLORS.t3, fontSize: 14 }}>/100</Text>
+      {/* ═══ DAY CONQUERED ═══ */}
+      {pct >= 1 && (
+        <Card style={{ borderWidth: 1, borderColor: COLORS.lime, padding: 18, alignItems: 'center' }}>
+          <Text style={{ fontSize: 28 }}>🏆</Text>
+          <Text style={{ color: COLORS.lime, fontSize: 18, fontWeight: '800', marginTop: 6 }}>DAY CONQUERED</Text>
+          <Text style={{ color: COLORS.t2, fontSize: 12, marginTop: 4 }}>You kept your word today.</Text>
+        </Card>
+      )}
+
+      {/* ═══ STREAK ═══ */}
+      {(data.streak || 0) >= 3 && (
+        <Card style={{ padding: 14, alignItems: 'center' }}>
+          <Text style={{ fontSize: 28 }}>🔥</Text>
+          <Text style={{ color: COLORS.accent, fontSize: 26, fontWeight: '800' }}>{data.streak}</Text>
+          <Text style={{ color: COLORS.t3, fontSize: 10, letterSpacing: 2 }}>DAYS</Text>
+          {streakLabel(data.streak) ? (
+            <View style={st.milestoneBadge}>
+              <Text style={{ color: COLORS.lime, fontSize: 11, fontWeight: '700' }}>{streakLabel(data.streak)}</Text>
             </View>
-            <Text style={{ color: COLORS.t3, fontSize: 11, marginTop: 4 }}>
-              {actionsDone < 2 ? 'Slow start — pick it up' : actionsDone < 5 ? "Moving — don't stop" : 'Strong day'}
-            </Text>
-          </View>
-          <View style={{ alignItems: 'center' }}>
-            <Text style={{ fontSize: 24 }}>🔥</Text>
-            <Text style={{ color: COLORS.primary, fontSize: 18, fontWeight: '700' }}>{data.streak || 0}</Text>
-            <Text style={{ color: COLORS.t3, fontSize: 9 }}>streak</Text>
-          </View>
-        </View>
-      </Card>
+          ) : null}
+          <Text style={{ color: COLORS.t3, fontSize: 11, marginTop: 8, fontStyle: 'italic' }}>
+            Don't break what you're becoming.
+          </Text>
+        </Card>
+      )}
     </ScrollView>
   );
 }
 
-const s = StyleSheet.create({
+const st = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: 16 },
-  header: { marginBottom: 20 },
-  dayLabel: { color: COLORS.t3, fontSize: 11 },
-  greeting: { fontSize: 22, fontWeight: '700', color: COLORS.t1 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  challengeLabel: { color: COLORS.accent, fontSize: 10, fontWeight: '600', letterSpacing: 1 },
-  iconBox: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+
+  // Countdown
+  countdownSection: { borderRadius: 16, overflow: 'hidden', marginBottom: 14 },
+  countdownGrad: { padding: 20, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border },
+  countdownSub: { color: COLORS.t2, fontSize: 13, marginBottom: 8 },
+  countdownRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  countdownNum: { fontSize: 64, fontWeight: '900', color: COLORS.t1, lineHeight: 68 },
+  countdownLabel: { color: COLORS.accent, fontSize: 10, fontWeight: '700', letterSpacing: 2 },
+  countdownTitle: { color: COLORS.accent, fontSize: 20, fontWeight: '800' },
+  monthBar: { flexDirection: 'row', gap: 4, marginTop: 12, marginBottom: 10 },
+  monthDot: { flex: 1, height: 4, borderRadius: 2, backgroundColor: COLORS.border },
+  monthActive: { backgroundColor: COLORS.accent },
+  qpvRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  qpvLabel: { color: COLORS.t3, fontSize: 11 },
+  qpvValue: { color: COLORS.t2, fontSize: 12, fontWeight: '600' },
+
+  // Quick access
+  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
+  quickItem: { width: '22%', alignItems: 'center', paddingVertical: 10 },
+  quickIcon: {
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+  },
+  quickLabel: { color: COLORS.t3, fontSize: 9, fontWeight: '600' },
+
+  // Stats
+  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  statPill: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    paddingVertical: 8, borderRadius: 10,
+    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
+  },
+  statNum: { color: COLORS.accent, fontSize: 15, fontWeight: '800' },
+  statSub: { color: COLORS.t3, fontSize: 9 },
+
+  // Attack
+  attackIcon: {
+    width: 42, height: 42, borderRadius: 14,
+    backgroundColor: COLORS.primaryDim, alignItems: 'center', justifyContent: 'center',
+  },
+
+  // Actions
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  dot: {
+    width: 22, height: 22, borderRadius: 11,
+    borderWidth: 2, borderColor: COLORS.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   checkbox: { width: 22, height: 22, borderRadius: 7, borderWidth: 2, borderColor: COLORS.t3, alignItems: 'center', justifyContent: 'center' },
-  checkboxDone: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   actionLabel: { color: COLORS.t1, fontSize: 13 },
   actionDone: { color: COLORS.t3, textDecorationLine: 'line-through' },
-  scoreLabel: { color: COLORS.primary, fontSize: 10, fontWeight: '600', letterSpacing: 1, marginBottom: 4 },
+
+  // Streak
+  milestoneBadge: {
+    marginTop: 6, paddingVertical: 3, paddingHorizontal: 10,
+    borderRadius: 8, backgroundColor: COLORS.limeDim, borderWidth: 1, borderColor: COLORS.lime,
+  },
 });

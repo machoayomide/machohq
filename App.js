@@ -253,7 +253,8 @@ export default function App() {
               {hqView === 'home' ? (
                 <HomeScreen data={appData} dailyActions={dailyActions} toggleAction={toggleAction}
                   team={team} prospects={prospects} profile={profile}
-                  onOpenBrief={() => setHqView('brief')} />
+                  onOpenBrief={() => setHqView('brief')}
+                  onNavigate={(key) => { navRef.current?.navigate?.('More'); setMoreView(key); }} />
               ) : (
                 <DailyBriefScreen team={team} prospects={prospects} data={appData} books={books}
                   onBack={() => setHqView('home')} />

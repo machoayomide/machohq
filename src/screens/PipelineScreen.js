@@ -35,6 +35,7 @@ export default function PipelineScreen({ prospects, setProspects }) {
   const [source, setSource] = useState('Cold Outreach');
   const [stage, setStage] = useState(0);
   const [noteText, setNoteText] = useState('');
+  const [experience, setExperience] = useState('');
   const [draft, setDraft] = useState('');
   const [drafting, setDrafting] = useState(false);
 
@@ -46,6 +47,7 @@ export default function PipelineScreen({ prospects, setProspects }) {
     if (!name.trim()) return;
     setProspects(prev => [...(prev || []), {
       id: Date.now(), name: name.trim(), phone: phone.trim(), source, stage,
+      experience: experience.trim(),
       added: today(), lastContact: today(), notes: [], objection: null, cold: false,
     }]);
     setName(''); setPhone(''); setStage(0); setAdding(false);
@@ -307,6 +309,17 @@ Rules:
                   </TouchableOpacity>
                 ))}
               </View>
+
+              <Text style={{ color: COLORS.t2, fontSize: 12, marginBottom: 6 }}>How did you meet? Tell the story</Text>
+              <TextInput
+                value={experience}
+                onChangeText={setExperience}
+                placeholder="e.g. Met at the barber, talked about side hustles, seemed interested..."
+                placeholderTextColor={COLORS.t3}
+                multiline
+                numberOfLines={3}
+                style={{ height: 80, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, color: COLORS.t1, paddingHorizontal: 12, paddingTop: 10, fontSize: 12, textAlignVertical: 'top', marginBottom: 12 }}
+              />
 
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Btn full onPress={add}>Save</Btn>

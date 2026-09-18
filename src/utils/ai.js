@@ -11,7 +11,7 @@ export const PROVIDERS = {
     id: 'gemini',
     name: 'Google Gemini',
     badge: 'Free',
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.0-flash-001',
     keyPrefix: 'AIza',
     keyUrl: 'https://aistudio.google.com/apikey',
     cost: 'Free — 1,500 requests a day, no card needed',
@@ -94,25 +94,34 @@ export async function activeProviderInfo() {
 // ─── Provider calls ───
 
 async function callGemini(key, prompt, maxTokens, webSearch) {
-  const body = {
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 },
-  };
-  if (webSearch) body.tools = [{ google_search: {} }];
+  const models = ['gemini-2.0-flash-001', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+  let lastError = '';
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${PROVIDERS.gemini.model}:generateContent?key=${key}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-  );
+  for (const model of models) {
+    const body = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 },
+    };
+    if (webSearch) body.tools = [{ google_search: {} }];
 
-  if (res.status === 400) return { ok: false, error: 'Gemini rejected the key. Check it in Settings.' };
-  if (res.status === 429) return { ok: false, error: 'Free tier limit hit. Wait a minute and try again.' };
-  if (!res.ok) return { ok: false, error: `Gemini returned ${res.status}.` };
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      );
 
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
-  if (!text) return { ok: false, error: 'Empty response. Try rephrasing.' };
-  return { ok: true, text };
+      if (res.status === 404) { lastError = `Model ${model} not found.`; continue; }
+      if (res.status === 400) return { ok: false, error: 'Gemini rejected the key. Check it in Settings.' };
+      if (res.status === 429) return { ok: false, error: 'Free tier limit hit. Wait a minute and try again.' };
+      if (!res.ok) return { ok: false, error: `Gemini returned ${res.status}.` };
+
+      const data = await res.json();
+      const text = data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
+      if (!text) return { ok: false, error: 'Empty response. Try rephrasing.' };
+      return { ok: true, text };
+    } catch { lastError = 'Network error'; continue; }
+  }
+  return { ok: false, error: lastError || 'All Gemini models returned 404. Check your API key.' };
 }
 
 async function callOpenAICompatible(url, key, model, prompt, maxTokens, extraHeaders = {}) {
@@ -171,8 +180,10 @@ async function callClaude(key, prompt, maxTokens, webSearch) {
 
 /**
  * Single entry point. Returns { ok, text, error }. Never throws.
+ * Now prepends shared context (profile, team summary, recent activity)
+ * so all AI screens share the same knowledge about you.
  */
-export async function askClaude(prompt, { maxTokens = 800, webSearch = false } = {}) {
+export async function askClaude(prompt, { maxTokens = 800, webSearch = false, skipContext = false } = {}) {
   const providerId = await getProvider();
   const provider = PROVIDERS[providerId] || PROVIDERS.gemini;
   const key = await getKey(providerId);
@@ -185,22 +196,29 @@ export async function askClaude(prompt, { maxTokens = 800, webSearch = false } =
     };
   }
 
+  // Build shared context from stored data
+  let fullPrompt = prompt;
+  if (!skipContext) {
+    const ctx = await buildSharedContext();
+    if (ctx) fullPrompt = ctx + '\n\n---\n\nUser request:\n' + prompt;
+  }
+
   const useSearch = webSearch && provider.webSearch;
 
   try {
     let result;
     if (providerId === 'gemini') {
-      result = await callGemini(key, prompt, maxTokens, useSearch);
+      result = await callGemini(key, fullPrompt, maxTokens, useSearch);
     } else if (providerId === 'groq') {
-      result = await callOpenAICompatible('https://api.groq.com/openai/v1/chat/completions', key, provider.model, prompt, maxTokens);
+      result = await callOpenAICompatible('https://api.groq.com/openai/v1/chat/completions', key, provider.model, fullPrompt, maxTokens);
     } else if (providerId === 'openai') {
-      result = await callOpenAICompatible('https://api.openai.com/v1/chat/completions', key, provider.model, prompt, maxTokens);
+      result = await callOpenAICompatible('https://api.openai.com/v1/chat/completions', key, provider.model, fullPrompt, maxTokens);
     } else if (providerId === 'openrouter') {
-      result = await callOpenAICompatible('https://openrouter.ai/api/v1/chat/completions', key, provider.model, prompt, maxTokens, {
+      result = await callOpenAICompatible('https://openrouter.ai/api/v1/chat/completions', key, provider.model, fullPrompt, maxTokens, {
         'HTTP-Referer': 'https://machohq.app', 'X-Title': 'MachoHQ',
       });
     } else {
-      result = await callClaude(key, prompt, maxTokens, useSearch);
+      result = await callClaude(key, fullPrompt, maxTokens, useSearch);
     }
 
     if (!result.ok) return { ok: false, text: '', error: result.error };
@@ -233,5 +251,44 @@ export async function testKey(providerId, key) {
     return r;
   } catch {
     return { ok: false, error: 'Could not reach the provider. Check your connection.' };
+  }
+}
+
+// ─── Shared AI Context ───
+// Every AI call gets this prepended so all screens share the same knowledge.
+async function buildSharedContext() {
+  try {
+    const [profile, team, prospects, appData] = await Promise.all([
+      getData('profile'), getData('team'), getData('prospects'), getData('appData'),
+    ]);
+
+    const parts = [];
+    parts.push('You are an AI adviser inside MachoHQ, a personal performance app for a Nigerian NeoLife network marketer and freelancer.');
+
+    if (profile) {
+      parts.push(`The user's name is ${profile.name || 'unknown'}. They go by "${profile.nickname || profile.name}". NeoLife rank: ${profile.rank || 'unknown'}.`);
+    }
+
+    if (appData) {
+      parts.push(`Current QPV this month: ${appData.qpv || 0}. Day streak: ${appData.streak || 0}. Running a 6-month Director Challenge.`);
+    }
+
+    if (team && team.length > 0) {
+      const directs = team.filter(m => m.direct);
+      const zeroPV = team.filter(m => m.pv === 0);
+      parts.push(`Team: ${team.length} members total, ${directs.length} direct legs. ${zeroPV.length} at zero PV this month.`);
+      parts.push('Team members: ' + team.map(m => `${m.name} (${m.status}, ${m.pv} PV, ${m.direct ? 'direct' : 'indirect'})`).join('; '));
+    }
+
+    if (prospects && prospects.length > 0) {
+      const active = prospects.filter(p => p.stage !== 'Went Cold' && p.stage !== 'Joined');
+      parts.push(`Prospect pipeline: ${prospects.length} total, ${active.length} active.`);
+    }
+
+    parts.push('Be concise and practical. You know NeoLife compensation, the Nigerian market, Fiverr freelancing. Sound like a sharp adviser, not a chatbot.');
+
+    return parts.join(' ');
+  } catch {
+    return null;
   }
 }
