@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Linking, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import { Card, Badge, Btn, TabBar } from '../components/UI';
 import { askClaude } from '../utils/ai';
 import { today } from '../utils/storage';
+import { scheduleReminder } from '../utils/notifications';
 
 const MSG_TYPES = [
   { key: 'intro', label: 'Introduction', desc: 'First time reaching out' },
@@ -13,6 +14,13 @@ const MSG_TYPES = [
   { key: 'invite', label: 'Invite', desc: 'Invite to a meeting or presentation' },
   { key: 'followup', label: 'Follow up', desc: 'They showed interest before' },
   { key: 'custom', label: 'Custom', desc: 'Write your own prompt' },
+];
+
+const SPREAD_OPTIONS = [
+  { key: 'manual', label: 'Manual', desc: 'You decide when to send each one', gap: 0 },
+  { key: 'fast', label: '3 min gap', desc: 'Quick but safe spacing', gap: 180 },
+  { key: 'normal', label: '10 min gap', desc: 'Natural spacing, safer', gap: 600 },
+  { key: 'spread', label: 'Across the day', desc: 'Random times from now till 9pm', gap: -1 },
 ];
 
 export default function OutreachScreen({ prospects, setProspects, data }) {
@@ -28,6 +36,11 @@ export default function OutreachScreen({ prospects, setProspects, data }) {
   const [customPrompt, setCustomPrompt] = useState('');
   const [sentToday, setSentToday] = useState([]);
   const [dailyTarget, setDailyTarget] = useState(15);
+
+  // Cooldown
+  const [spreadMode, setSpreadMode] = useState('fast');
+  const [cooldown, setCooldown] = useState(0);
+  const cooldownRef = useRef(null);
   const [running, setRunning] = useState(false);
 
   // Bulk add state
@@ -54,7 +67,25 @@ export default function OutreachScreen({ prospects, setProspects, data }) {
 
   useEffect(() => { buildQueue(); }, [prospects, sentToday, dailyTarget]);
 
+  // Cooldown timer
+  useEffect(() => {
+    if (cooldown <= 0) { clearInterval(cooldownRef.current); return; }
+    cooldownRef.current = setInterval(() => {
+      setCooldown(prev => {
+        if (prev <= 1) { clearInterval(cooldownRef.current); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(cooldownRef.current);
+  }, [cooldown > 0]);
+
   const currentPerson = queue[currentIdx];
+
+  const formatCooldown = (secs) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${s}s`;
+  };
 
   const formatPhone = (ph) => {
     const clean = (ph || '').replace(/[^0-9+]/g, '');
@@ -128,16 +159,58 @@ Rules:
     if (!currentPerson || !draft) return;
     openWhatsApp(currentPerson.phone, draft);
     markSent(currentPerson.id);
-    // Move to next
+
+    const mode = SPREAD_OPTIONS.find(s => s.key === spreadMode) || SPREAD_OPTIONS[1];
+
+    if (spreadMode === 'spread') {
+      // Schedule remaining as notifications spread across the day
+      scheduleSpreadNotifications();
+      setRunning(false);
+      setDraft('');
+      return;
+    }
+
+    // Move to next with cooldown
     setTimeout(() => {
       if (currentIdx + 1 < queue.length) {
         setCurrentIdx(prev => prev + 1);
         setDraft('');
+        if (mode.gap > 0) {
+          setCooldown(mode.gap);
+        }
       } else {
         setRunning(false);
         setDraft('');
       }
     }, 500);
+  };
+
+  const scheduleSpreadNotifications = async () => {
+    const remaining = queue.slice(currentIdx + 1);
+    if (remaining.length === 0) return;
+
+    const now = new Date();
+    const endHour = 21; // 9pm
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const endMin = endHour * 60;
+    const availableMin = Math.max(0, endMin - nowMin);
+
+    if (availableMin < 10) {
+      Alert.alert('Too late', 'Not enough time today to spread messages. Try manual or 3-min gap.');
+      return;
+    }
+
+    const gap = Math.floor(availableMin / remaining.length);
+    for (let i = 0; i < remaining.length; i++) {
+      const delaySeconds = (i + 1) * gap * 60;
+      await scheduleReminder(
+        `Message ${remaining[i].name}`,
+        `Time to reach out. Open WhatsApp Outreach.`,
+        delaySeconds,
+        'outreach'
+      );
+    }
+    Alert.alert('Scheduled', `${remaining.length} reminders spread across today. You'll get a notification for each one.`);
   };
 
   const markSent = (id) => {
@@ -275,6 +348,19 @@ Rules:
                 placeholderTextColor={COLORS.t3} multiline
                 style={[st.input, { height: 60, textAlignVertical: 'top', paddingTop: 10, marginTop: 8 }]} />
             )}
+
+            <Text style={{ color: COLORS.t3, fontSize: 10, fontWeight: '600', letterSpacing: 1, marginTop: 12, marginBottom: 6 }}>SPACING (avoid bans)</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {SPREAD_OPTIONS.map(s => (
+                <TouchableOpacity key={s.key} onPress={() => setSpreadMode(s.key)}
+                  style={[st.typeTag, spreadMode === s.key && st.typeActive]}>
+                  <Text style={{ color: spreadMode === s.key ? COLORS.primary : COLORS.t3, fontSize: 10, fontWeight: '600' }}>{s.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={{ color: COLORS.t3, fontSize: 10, marginTop: 4 }}>
+              {SPREAD_OPTIONS.find(s => s.key === spreadMode)?.desc}
+            </Text>
           </Card>
 
           {/* Start button */}
@@ -315,7 +401,15 @@ Rules:
               </View>
 
               {/* Draft or generate */}
-              {!draft && !drafting && (
+              {cooldown > 0 && (
+                <View style={{ alignItems: 'center', padding: 16, backgroundColor: COLORS.bg, borderRadius: 12 }}>
+                  <Text style={{ color: COLORS.accent, fontSize: 28, fontWeight: '800' }}>{formatCooldown(cooldown)}</Text>
+                  <Text style={{ color: COLORS.t3, fontSize: 11, marginTop: 4 }}>Waiting between messages to avoid ban</Text>
+                  <Text style={{ color: COLORS.t3, fontSize: 10, marginTop: 2 }}>Next: {currentPerson?.name}</Text>
+                </View>
+              )}
+
+              {cooldown <= 0 && !draft && !drafting && (
                 <Btn full onPress={() => draftForPerson(currentPerson)} style={{ height: 44 }}>
                   Draft message
                 </Btn>
