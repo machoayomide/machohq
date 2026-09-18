@@ -11,7 +11,7 @@ export const PROVIDERS = {
     id: 'gemini',
     name: 'Google Gemini',
     badge: 'Free',
-    model: 'gemini-2.0-flash-001',
+    model: 'gemini-3.5-flash',
     keyPrefix: 'AIza',
     keyUrl: 'https://aistudio.google.com/apikey',
     cost: 'Free — 1,500 requests a day, no card needed',
@@ -94,7 +94,7 @@ export async function activeProviderInfo() {
 // ─── Provider calls ───
 
 async function callGemini(key, prompt, maxTokens, webSearch) {
-  const models = ['gemini-2.0-flash-001', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+  const models = ['gemini-3.5-flash', 'gemini-2.5-flash-preview', 'gemini-3.1-flash-lite'];
   let lastError = '';
 
   for (const model of models) {
